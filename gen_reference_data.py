@@ -8,7 +8,7 @@ from os.path import isfile, join
 
 
 # Load settings from configuration file.
-cfg = config.Config('aborag.cfg')
+cfg = config.Config('models.cfg')
 EMBED_MODEL = cfg["embedmodel"]
 COLLECTION_NAME = cfg['collection_name']
 REF_DOCS_PATH = cfg['reference_docs_path']

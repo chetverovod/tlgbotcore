@@ -26,6 +26,53 @@ def get_collection() -> chromadb.Collection:
     return collection
 
 
+def make_answer(user_query: str) -> str:
+    """ Make single answer."""
+
+    collection = get_collection()
+    query = user_query
+    if EMBED_MODEL == 'navec':
+        emb = ec.navec_embeddings(query)
+    else:
+        emb = ollama.embeddings(model=EMBED_MODEL, prompt=query)
+    queryembed = emb["embedding"]
+    relevantdocs = collection.query(
+        query_embeddings=[queryembed], n_results=5)["documents"][0]
+    context = "\n\n".join(relevantdocs)
+    modelquery = f"{query} - Answer in Russian that question," \
+                 + " point source, chapter number and page number" \
+                 + " where it is," \
+                 + " using the following text as a resource:" \
+                 + f"{context}"
+
+    if PRINT_CONTEXT is True:
+        print("----------------------Request-------------------------")
+        print(query)
+        print("----------------------Context begin-------------------")
+        print("docs: ", context)
+        print("----------------------Context end---------------------")
+
+    if USE_CHAT is True:
+        response = ollama.chat(model=MAIN_MODEL, messages=[
+            {
+                'role': 'user',
+                'content': query,
+                'prompt': modelquery
+            },
+        ])
+
+        print(response['message']['content'])
+    else:
+        stream = ollama.generate(model=MAIN_MODEL, prompt=modelquery,
+                                 stream=True)
+        res = ''
+        for chunk in stream:
+            if chunk["response"]:
+                res += chunk['response']
+    print('res=', res)
+    return res
+
+
 def main():
     """
     The main function.

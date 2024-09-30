@@ -1,4 +1,5 @@
 import torch
+import numpy
 from navec import Navec
 from slovnet.model.emb import NavecEmbedding
 import string

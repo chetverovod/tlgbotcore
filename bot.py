@@ -12,6 +12,7 @@ from io import BytesIO
 from bot_config import tetoken
 import re
 import keyboard as kb
+import model_io as mio 
 
 ver = "0.1.1"
 
@@ -66,20 +67,21 @@ async def cmd_start(message: types.Message):
 
 
 @dp.message(F.text)
-async def download_audio(message: Message, bot: Bot):
+async def handle_user_query(message: Message, bot: Bot):
     # Получаем текущее время в часовом поясе ПК
 
     time_begin = datetime.now()
     query = message.text
     print(f'Query: {query}')
+    model_answer = mio.make_answer(query)
     time_end = datetime.now()
     time_dif = time_begin - time_end
     seconds_in_day = 24 * 60 * 60
     work_time = divmod(time_dif.days * seconds_in_day + time_dif.seconds, 60)
     print(f'Working time: {abs(work_time[0])} minutes {abs(work_time[1])}'
           + ' seconds.')
-    model_answer = "ok"
-    await message.answer('вопрос:\n' + query + '\nответ:\n' + model_answer)
+    #await message.answer('вопрос:\n' + query + '\nответ:\n' + model_answer)
+    await message.answer(model_answer)
 
 
 @dp.message(F.text)
