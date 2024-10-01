@@ -1,1 +1,0 @@
-tetoken = '7540570549:AAGBHBHLKkm22rJaPieLH3qUAOFwutX-mDg'
