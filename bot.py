@@ -8,10 +8,7 @@ from aiogram.types import Message
 from aiogram import html
 from aiogram.types.input_file import FSInputFile
 from aiogram.types import InputFile
-from io import BytesIO
 import config
-# from bot_config import TETOKEN
-import re
 import keyboard as kb
 import model_io as mio
 
@@ -19,12 +16,14 @@ import model_io as mio
 # Load settings from configuration file.
 cfg = config.Config('bot_settings.cfg')
 TETOKEN = cfg['tetoken']
-ver = "0.1.1"
+BOT_TAG = f"bot<{cfg['bot_name']}>"
 
-help_msg = "Просто напишите вопрос и бот ответит, основываясь только" \
+VER = "0.1.1"
+
+HELP_MSG = "Просто напишите вопрос и бот ответит, основываясь только" \
            " на сведениях, указанных в руководстве по эксплуатации."
 
-moto_bikes = ['Suzuki Djebel 200']
+MOTO_BIKES = ['Suzuki Djebel 200']
 
 link_to_service_manual = 'https://disk.yandex.ru/i/gWonEIVopPJnGA'
 
@@ -37,57 +36,62 @@ bot = Bot(token=TETOKEN)
 # Диспетчер
 dp = Dispatcher()
 
-# Делаем запись в лог о старте бота в этот же лог будут
-# помещены запросы и ответы:
-with open(cfg['log_file'], 'a') as f:
-    time_begin = datetime.now()
-    f.write(f"\n{time_begin} Bot<{cfg['bot_name']}> - start\n")
 
-# Хэндлер на команду /help
+def init():
+    """Initial settings for start."""
+# Делаем запись в лог о старте бота. Туда же будут
+# помещены запросы и ответы:
+    with open(cfg['log_file'], 'a', encoding='utf-8') as f:
+        time_begin = datetime.now()
+        f.write(f"\n{time_begin} {BOT_TAG} - start\n")
+
+
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
-    await message.reply(help_msg)
+    """ Process /help command."""
+
+    await message.reply(HELP_MSG)
 
 
-# Хэндлер на команду /ver
 @dp.message(Command("ver"))
 async def cmd_verp(message: types.Message):
-    await message.reply(ver)
+    """Process `/ver` command."""
+
+    await message.reply(VER)
 
 
-@dp.message(Command('terms'))
-async def process_terms_command(message: types.Message):
-    await message.reply('terms', reply=False)
-
-
-# Хэндлер на команду /keyboard
 @dp.message(Command('keyboard'))
 async def process_keyboard_command(message: types.Message):
+    """Process /keyboard command."""
     await message.reply("Привет!", reply_markup=kb.greet_kb)
 
 
-# Хэндлер на команду /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
+    """Process `/start` command."""
+
     await message.answer("Привет!\n Этот бот отвечает на вопросы"
                          + " по обслуживанию мотоциклов"
                          + " пока только одной модели:"
-                         + f" {moto_bikes}.\nПока только по первым двум "
+                         + f" {MOTO_BIKES}.\nПока только по первым двум "
                          + "главам руководства"
                          + f" по эксплуатации:{link_to_service_manual}\n"
-                         + f"{help_msg}"
+                         + f"{HELP_MSG}"
                          )
 
 
 @dp.message(F.text)
 async def handle_user_query(message: Message, bot: Bot):
-    # Получаем текущее время в часовом поясе ПК
+    """Handle user queries."""
 
+    # Получаем текущее время в часовом поясе ПК
     time_begin = datetime.now()
     query = message.text
     print(f'Query: {query}')
-    with open(cfg['log_file'], 'a') as f:
-        f.write(f"\n{time_begin} Bot<{cfg['bot_name']}> - query: {query}\n")
+    with open(cfg['log_file'], 'a', encoding='utf-8') as f:
+        f.write(f"\n{time_begin} bot<{cfg['bot_name']}> - "
+                + f"user<{message.from_user.username}> - "
+                + f"query<{query}>\n")
 
     model_answer = mio.make_answer(query)
     time_end = datetime.now()
@@ -96,27 +100,17 @@ async def handle_user_query(message: Message, bot: Bot):
     work_time = divmod(time_dif.days * seconds_in_day + time_dif.seconds, 60)
     print(f'Working time: {abs(work_time[0])} minutes {abs(work_time[1])}'
           + ' seconds.')
-    #await message.answer('вопрос:\n' + query + '\nответ:\n' + model_answer)
-    with open(cfg['log_file'], 'a') as f:
-        f.write(f"\n{time_end} Bot<{cfg['bot_name']}> - answer: {model_answer}\n")
+    with open(cfg['log_file'], 'a', encoding='utf-8') as f:
+        f.write(f"\n{time_end} bot<{cfg['bot_name']}> - "
+                + f"user<{message.from_user.username}> - "
+                + f"answer<{model_answer}>\n")
     await message.answer(model_answer)
 
 
-@dp.message(F.text)
-async def echo_with_time(message: Message):
-
-    # Получаем текущее время в часовом поясе ПК
-    time_now = datetime.now().strftime('%H:%M')
-
-    # Создаём подчёркнутый текст
-    added_text = html.underline(f"Создано в {time_now}")
-
-    # Отправляем новое сообщение с добавленным текстом
-    await message.answer(f"{message.text}\n\n{added_text}", parse_mode="HTML")
-
-
-# Запуск процесса поллинга новых апдейтов
 async def main():
+    """Start bot."""
+    init()
+    # Запуск процесса поллинга новых апдейтов
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
