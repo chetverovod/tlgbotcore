@@ -1,3 +1,4 @@
+import logging
 import embeddings_ctrl as ec
 import ollama
 import chromadb
@@ -39,18 +40,27 @@ def make_answer(user_query: str) -> str:
     relevantdocs = collection.query(
         query_embeddings=[queryembed], n_results=5)["documents"][0]
     context = "\n\n".join(relevantdocs)
+
+    modelquery1 = f"{query} - Answer in Russian that question," \
+                  " point source, chapter number and page number" \
+                  " where it is," \
+                  " using the following text as a resource:" \
+                  f"{context}"
+
     modelquery = f"{query} - Answer in Russian that question," \
-                 + " point source, chapter number and page number" \
-                 + " where it is," \
-                 + " using the following text as a resource:" \
-                 + f"{context}"
+                 " point source, chapter number and page number" \
+                 " where it is, if yuo cite numbered list of steps," \
+                 " don't skip one of them" \
+                 " use the following text as a resource:" \
+                 f"{context}"
 
     if PRINT_CONTEXT is True:
-        print("----------------------Request-------------------------")
-        print(query)
-        print("----------------------Context begin-------------------")
-        print("docs: ", context)
-        print("----------------------Context end---------------------")
+        msg = ("----------------------Request-------------------------"
+               f"{query}"
+               "----------------------Context begin-------------------"
+               f"docs: {context}"
+               "----------------------Context end---------------------")
+        logging.info(msg)
 
     if USE_CHAT is True:
         response = ollama.chat(model=MAIN_MODEL, messages=[
@@ -61,7 +71,7 @@ def make_answer(user_query: str) -> str:
             },
         ])
 
-        print(response['message']['content'])
+        res = response['message']['content']
     else:
         stream = ollama.generate(model=MAIN_MODEL, prompt=modelquery,
                                  stream=True)
@@ -69,7 +79,7 @@ def make_answer(user_query: str) -> str:
         for chunk in stream:
             if chunk["response"]:
                 res += chunk['response']
-    print('res=', res)
+    logging.info(res)
     return res
 
 
@@ -80,14 +90,14 @@ def main():
 
     collection = get_collection()
     run_flag = True
-    print(f'Embedding model: {EMBED_MODEL}')
-    print(f'Main model: {MAIN_MODEL}')
+    logging.info("%s", f'Embedding model: {EMBED_MODEL}')
+    logging.info("%s", f'Main model: {MAIN_MODEL}')
 
-    print('\nAssistant for bike Suzuki Djebel 200 service is running.\n'
-          'Enter your question or type "q" to exit.\n')
+    logging.info('\nAssistant for bike Suzuki Djebel 200 service is running.\n'
+                 'Enter your question or type "q" to exit.\n')
 
     if EMBED_MODEL == 'navec':
-        print('Navec embeddings selected.\nType questions in Russian.\n')
+        logging.info('Navec embeddings selected.\nType questions in Russian.\n')
 
     answer_tag = ">>> "
     query_tag = "<<< "
@@ -110,11 +120,12 @@ def main():
                          + f"{context}"
 
             if PRINT_CONTEXT is True:
-                print("----------------------Request-------------------------")
-                print(query)
-                print("----------------------Context begin-------------------")
-                print("docs: ", context)
-                print("----------------------Context end---------------------")
+                logging.info("%s",
+                             "----------------------Request-------------------------"
+                             f'{query}'
+                             "----------------------Context begin-------------------"
+                             f'{context}'
+                             "----------------------Context end---------------------")
 
             if USE_CHAT is True:
                 response = ollama.chat(model=MAIN_MODEL, messages=[
