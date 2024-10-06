@@ -49,12 +49,10 @@ def build_prompt(user_query: str, rag_context: str) -> str:
 
     return prompt
 
-
-def make_answer(user_query: str) -> str:
-    """ Make single answer."""
+def get_rag_context(query: str) -> str:
+    """Get reference text."""
 
     collection = get_collection()
-    query = user_query
     if EMBED_MODEL == 'navec':
         emb = ec.navec_embeddings(query)
     else:
@@ -63,7 +61,14 @@ def make_answer(user_query: str) -> str:
     relevantdocs = collection.query(
         query_embeddings=[queryembed], n_results=5)["documents"][0]
     context = "\n\n".join(relevantdocs)
+    return context
 
+
+def make_answer(user_query: str) -> str:
+    """ Make single answer."""
+
+    query = user_query
+    context = get_rag_context(query)
     modelquery = build_prompt(query, context)
 
     if PRINT_CONTEXT is True:
@@ -100,7 +105,6 @@ def main():
     The main function.
     """
 
-    collection = get_collection()
     run_flag = True
     logging.info("%s", f'Embedding model: {EMBED_MODEL}')
     logging.info("%s", f'Main model: {MAIN_MODEL}')
@@ -117,14 +121,7 @@ def main():
     while run_flag is True:
         query = input(query_tag)
         if query.capitalize() != 'Q' and query.capitalize() != 'Й':
-            if EMBED_MODEL == 'navec':
-                emb = ec.navec_embeddings(query)
-            else:
-                emb = ollama.embeddings(model=EMBED_MODEL, prompt=query)
-            queryembed = emb["embedding"]
-            relevantdocs = collection.query(
-                query_embeddings=[queryembed], n_results=5)["documents"][0]
-            context = "\n\n".join(relevantdocs)
+            context = get_rag_context(query)
             modelquery = build_prompt(query, context)
             if PRINT_CONTEXT is True:
                 logging.info("%s",
