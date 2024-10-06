@@ -23,6 +23,8 @@ VER = "0.1.1"
 HELP_MSG = "Просто напишите вопрос и бот ответит, основываясь только" \
            " на сведениях, указанных в руководстве по эксплуатации."
 
+CONTACTS_MSG = "https://t.me/Chetverovod"
+
 MOTO_BIKES = ['Suzuki Djebel 200']
 
 link_to_service_manual = 'https://disk.yandex.ru/i/gWonEIVopPJnGA'
@@ -53,6 +55,16 @@ async def cmd_help(message: types.Message):
 
     await message.reply(HELP_MSG)
 
+
+@dp.message(Command("contacts"))
+async def cmd_contacts(message: types.Message):
+    """ Process /contacts command."""
+    info_str = (f"user<{message.from_user.username}> - "
+                f"user_id<{message.from_user.id}> - "
+                f"Contacts request.")
+
+    logging.info(info_str)
+    await message.reply(CONTACTS_MSG)
 
 @dp.message(Command("ver"))
 async def cmd_ver(message: types.Message):

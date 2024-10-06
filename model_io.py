@@ -27,6 +27,29 @@ def get_collection() -> chromadb.Collection:
     return collection
 
 
+def build_prompt(user_query: str, rag_context: str) -> str:
+    """Build prompt for LLM model."""
+
+    prompt_old = ("You consultant for motorbike 'Suzuki Djebel 200 service'"
+              f"Answer in Russian to question:  {user_query}."
+              " Every time point source, chapter number and page number"
+              " where answer info was found."
+              " Use as reference a following text from service manual:"
+              f"{rag_context}"
+              )
+    prompt = ("You consultant for motorbike 'Suzuki Djebel 200 service'"
+              f"Answer in Russian to question:  {user_query}."
+              " Every time point source, chapter number and page number"
+              " where answer info was found."
+              " In anwer use point as a decimal separator in float point numbers."
+              " Use as reference a following text from service manual:"
+              f"{rag_context}"
+              
+              )              
+
+    return prompt
+
+
 def make_answer(user_query: str) -> str:
     """ Make single answer."""
 
@@ -41,25 +64,14 @@ def make_answer(user_query: str) -> str:
         query_embeddings=[queryembed], n_results=5)["documents"][0]
     context = "\n\n".join(relevantdocs)
 
-    modelquery1 = f"{query} - Answer in Russian that question," \
-                  " point source, chapter number and page number" \
-                  " where it is," \
-                  " using the following text as a resource:" \
-                  f"{context}"
-
-    modelquery = f"{query} - Answer in Russian that question," \
-                 " point source, chapter number and page number" \
-                 " where it is, if yuo cite numbered list of steps," \
-                 " don't skip one of them" \
-                 " use the following text as a resource:" \
-                 f"{context}"
+    modelquery = build_prompt(query, context)
 
     if PRINT_CONTEXT is True:
-        msg = ("----------------------Request-------------------------"
+        msg = ("\n----------------------Request-------------------------\n"
                f"{query}"
-               "----------------------Context begin-------------------"
+               "\n----------------------Context begin-------------------\n"
                f"docs: {context}"
-               "----------------------Context end---------------------")
+               "\n----------------------Context end---------------------\n")
         logging.info(msg)
 
     if USE_CHAT is True:
@@ -113,19 +125,15 @@ def main():
             relevantdocs = collection.query(
                 query_embeddings=[queryembed], n_results=5)["documents"][0]
             context = "\n\n".join(relevantdocs)
-            modelquery = f"{query} - Answer in Russian that question," \
-                         + " point source, chapter number and page number" \
-                         + " where it is," \
-                         + " using the following text as a resource:" \
-                         + f"{context}"
-
+            modelquery = build_prompt(query, context)
             if PRINT_CONTEXT is True:
                 logging.info("%s",
-                             "----------------------Request-------------------------"
+                             "\n----------------------Request-------------------------\n"
                              f'{query}'
-                             "----------------------Context begin-------------------"
+                             "\n----------------------Context begin-------------------\n"
                              f'{context}'
-                             "----------------------Context end---------------------")
+                             "\n----------------------Context end---------------------\n"
+                             )
 
             if USE_CHAT is True:
                 response = ollama.chat(model=MAIN_MODEL, messages=[
