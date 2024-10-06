@@ -33,6 +33,7 @@ def test_chain_links_count():
 def test_chain_chkackin():
 
     query = "Как проверить состояние цепи?"
-    model_answer = mio.make_answer(query)
+    model_answer = mio.make_answer(query).low()
 
     assert "ржав" in model_answer
+    assert "перекрученные" in model_answer
