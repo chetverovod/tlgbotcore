@@ -28,3 +28,11 @@ def test_chain_links_count():
     model_answer = mio.make_answer(query)
 
     assert "112" in model_answer
+
+
+def test_chain_chkackin():
+
+    query = "Как проверить состояние цепи?"
+    model_answer = mio.make_answer(query)
+
+    assert "ржав" in model_answer
