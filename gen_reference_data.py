@@ -31,6 +31,8 @@ start_time = time.time()
 files = [f for f in listdir(REF_DOCS_PATH) if isfile(join(REF_DOCS_PATH, f))]
 text = ''
 for path in files:
+    if not path.endswith(".txt"):
+        continue
     relative_path = REF_DOCS_PATH + '/' + path
     filename = os.path.abspath(relative_path)
     print(f"\nDocument: {filename}")

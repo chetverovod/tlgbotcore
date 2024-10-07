@@ -119,12 +119,14 @@ async def handle_user_query(message: Message, bot: Bot):
     logging.info("%s", f"\n{time_end} bot<{cfg['bot_name']}> - "
                  f"user<{message.from_user.username}> - "
                  f"answer<{model_answer}>\n")
+    #await message.answer(model_answer, parse_mode='MarkdownV2')
     await message.answer(model_answer)
 
 
 async def main():
     """Start bot."""
     init()
+    print("Bot started. See log in bot_logs/bot.log")
     # Запуск процесса поллинга новых апдейтов
     await dp.start_polling(bot)
 
