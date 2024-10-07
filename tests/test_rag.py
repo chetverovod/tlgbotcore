@@ -70,7 +70,24 @@ def test_head_light_2():
 
 def test_break_liquid():
     query = "Тормозная жидкость?"
-    model_answer = mio.get_rag_context(query)  # Здесь lower() не нужен
+    model_answer = mio.get_rag_context(query) 
     LOGGER.info(model_answer)
     assert "DOT 4" in model_answer
+
+
+def test_motor_oil_type():
+    query = "Моторное масло?"
+    model_answer = mio.get_rag_context(query) 
+    LOGGER.info(model_answer)
+    assert "10W40" in model_answer
+
+def test_motor_oil_type_2():
+    query = "Моторное масло?"
+    model_answer = mio.get_rag_context(query) 
+    LOGGER.info(model_answer)
+    assert "API SE, SF или SG с вязкостью SAE 10W40" in model_answer
+
+
+
+
 
