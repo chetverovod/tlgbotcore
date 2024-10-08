@@ -1,4 +1,5 @@
 import os
+import re
 from os import listdir
 from os.path import isfile, join
 import pdfplumber
@@ -15,9 +16,18 @@ DROP_WORDS = cfg['drop_words']
 
 
 def drop_words(txt: str, drop_words_list: list[str]) -> str:
-    for word in DROP_WORDS:
-        txt = txt.replace(word, ' ')
+    for word in drop_words_list:
+        if 'r"' in word:
+            word = word.replace('r"', '"')
+            word = word.replace('"', '')
+            # Создаем регулярное выражение для поиска
+            pattern = rf"{word}"
+            # Заменяем все вхождения
+            txt = re.sub(pattern, ' ', txt)
+        else:
+            txt = txt.replace(word, ' ')
     return txt
+
 
 def build_txt() -> int:
     files = [f for f in listdir(REF_DOCS_PATH) if isfile(join(REF_DOCS_PATH, f))]
@@ -36,7 +46,7 @@ def build_txt() -> int:
                 txt = drop_words(txt, DROP_WORDS)
                 print(txt)
                 page_counter += 1
-                if page_counter > 3:
+                if page_counter > 2:
                     break
 
     return page_counter
