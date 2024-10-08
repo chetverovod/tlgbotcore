@@ -30,13 +30,6 @@ def get_collection() -> chromadb.Collection:
 def build_prompt(user_query: str, rag_context: str) -> str:
     """Build prompt for LLM model."""
 
-    prompt_old = ("You consultant for motorbike 'Suzuki Djebel 200 service'"
-              f"Answer in Russian to question:  {user_query}."
-              " Every time point source, chapter number and page number"
-              " where answer info was found."
-              " Use as reference a following text from service manual:"
-              f"{rag_context}"
-              )
     prompt = ("You consultant for motorbike 'Suzuki Djebel 200 service'"
               f"Answer in Russian to question:  {user_query}."
               " Every time point source, chapter number and page number"
@@ -45,8 +38,9 @@ def build_prompt(user_query: str, rag_context: str) -> str:
               #" Answer should be formatted in markdown format."
               " Use as reference a following text from service manual:"
               f"{rag_context}"
-              
-              )              
+              )
+    prompt = BASE_FOR_PROMPT.replace('<user_query>', user_query)
+    prompt = prompt.replace('<rag_context>', rag_context)
 
     return prompt
 
@@ -64,6 +58,9 @@ def get_rag_context(query: str, config_file: str) -> str:
     COLLECTION_NAME = cfg['collection_name']
     global PRINT_CONTEXT
     PRINT_CONTEXT = cfg['print_context']
+    global BASE_FOR_PROMPT
+    BASE_FOR_PROMPT = cfg['base_for_prompt']
+
 
     collection = get_collection()
     if EMBED_MODEL == 'navec':

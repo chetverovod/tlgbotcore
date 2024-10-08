@@ -16,26 +16,8 @@ import keyboard as kb
 import model_io as mio
 
 
-# Load settings from configuration file.
-#cfg = ""  #config.Config('bot_settings.cfg')
-#TETOKEN = ""  # cfg['tetoken']
-#BOT_TAG = ""  # f"bot<{cfg['bot_name']}>"
-
-VER = "0.1.1"
-
-HELP_MSG = "Просто напишите вопрос и бот ответит, основываясь только" \
-           " на сведениях, указанных в руководстве по эксплуатации."
-
-CONTACTS_MSG = "https://t.me/Chetverovod"
-
-MOTO_BIKES = ['Suzuki Djebel 200']
-
-link_to_service_manual = 'https://disk.yandex.ru/i/gWonEIVopPJnGA'
-
 time_begin = datetime.now()
 
-# Объект бота
-bot = ''
 
 # Диспетчер
 dp = Dispatcher()
@@ -54,14 +36,27 @@ def init(cli_args: dict):
     global BOT_TAG
     BOT_TAG = f"bot<{cfg['bot_name']}>"
 
+    # Объект бота
     global bot
     bot = Bot(token=TETOKEN)
 
     global MOTO_BIKES
     MOTO_BIKES = ['Suzuki Djebel 200']
 
-    global link_to_service_manual
-    link_to_service_manual = 'https://disk.yandex.ru/i/gWonEIVopPJnGA'
+    global LINK_TO_REFERENCE_DOCS
+    LINK_TO_REFERENCE_DOCS = cfg['link_to_reference_docs']
+
+    global VER
+    VER = cfg['ver']
+
+    global HELP_MSG
+    HELP_MSG = cfg['help_msg'] 
+
+    global CONTACTS_MSG
+    CONTACTS_MSG = cfg['contacts_msg']
+
+    global START_GREETINGS
+    START_GREETINGS = cfg['start_greetings']
 
     # Включаем логирование, чтобы не пропустить важные сообщения
     logging.basicConfig(level=logging.INFO, filename=cfg['log_file'],
@@ -89,6 +84,7 @@ async def cmd_contacts(message: types.Message):
     logging.info(info_str)
     await message.reply(CONTACTS_MSG)
 
+
 @dp.message(Command("ver"))
 async def cmd_ver(message: types.Message):
     """Process `/ver` command."""
@@ -106,14 +102,7 @@ async def process_keyboard_command(message: types.Message):
 async def cmd_start(message: types.Message):
     """Process `/start` command."""
 
-    await message.answer("Привет!\n Этот бот отвечает на вопросы"
-                         " по обслуживанию мотоциклов,"
-                         " пока только одной модели:"
-                         f" {MOTO_BIKES}.\nПока только по первым двум "
-                         "главам руководства"
-                         f" по эксплуатации:{link_to_service_manual}\n"
-                         f"{HELP_MSG}"
-                         )
+    await message.answer(START_GREETINGS)
 
 
 @dp.message(F.text)
@@ -166,7 +155,6 @@ async def main():
 
     global args
     args = parse_args()
-    print(f"args: {args}")
     init(args)
     print(f"Bot <{cfg['bot_name']}>  started. See log in <{cfg['log_file']}>.")
 
