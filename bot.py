@@ -8,6 +8,7 @@ from aiogram.types import Message
 from aiogram import html
 from aiogram.types.input_file import FSInputFile
 from aiogram.types import InputFile
+from aiogram.enums import ParseMode
 import config
 import keyboard as kb
 import model_io as mio
@@ -119,7 +120,7 @@ async def handle_user_query(message: Message, bot: Bot):
     logging.info("%s", f"\n{time_end} bot<{cfg['bot_name']}> - "
                  f"user<{message.from_user.username}> - "
                  f"answer<{model_answer}>\n")
-    #await message.answer(model_answer, parse_mode='MarkdownV2')
+    #await message.answer( model_answer, parse_mode=ParseMode.MARKDOWN_V2)
     await message.answer(model_answer)
 
 

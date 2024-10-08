@@ -42,7 +42,7 @@ def build_prompt(user_query: str, rag_context: str) -> str:
               " Every time point source, chapter number and page number"
               " where answer info was found."
               " In answer use point as a decimal separator in float point numbers."
-              #" Answer should be in markdown format."
+              #" Answer should be formatted in markdown format."
               " Use as reference a following text from service manual:"
               f"{rag_context}"
               
