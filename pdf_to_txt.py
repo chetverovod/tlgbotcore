@@ -38,17 +38,21 @@ def build_txt() -> int:
 
         relative_path = REF_DOCS_PATH + '/' + path
         filename = os.path.abspath(relative_path)
+        output_filename = filename.replace(".pdf", ".txt")
+        with open(output_filename, "w", encoding="utf-8") as f:
+            f.write(f"source: {filename}\n\n")
         print(f"\nDocument: {filename}")
         with pdfplumber.open(filename) as pdf:
             pages = pdf.pages
+            local_page_counter = 0
             for page in pages:
                 txt = page.extract_text() + "\n\n"
                 txt = drop_words(txt, DROP_WORDS)
-                print(txt)
+                local_page_counter += 1
                 page_counter += 1
-                if page_counter > 2:
-                    break
-
+                with open(output_filename, "a", encoding="utf-8") as f:
+                    f.write(f"{BEGIN_TAG}\n {txt}\n")
+            print(f"\n{filename} {local_page_counter} pages found.")
     return page_counter
 
 

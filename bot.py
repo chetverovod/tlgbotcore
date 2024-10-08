@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 from datetime import datetime
@@ -10,14 +11,15 @@ from aiogram.types.input_file import FSInputFile
 from aiogram.types import InputFile
 from aiogram.enums import ParseMode
 import config
+import argparse
 import keyboard as kb
 import model_io as mio
 
 
 # Load settings from configuration file.
-cfg = config.Config('bot_settings.cfg')
-TETOKEN = cfg['tetoken']
-BOT_TAG = f"bot<{cfg['bot_name']}>"
+#cfg = ""  #config.Config('bot_settings.cfg')
+#TETOKEN = ""  # cfg['tetoken']
+#BOT_TAG = ""  # f"bot<{cfg['bot_name']}>"
 
 VER = "0.1.1"
 
@@ -30,22 +32,42 @@ MOTO_BIKES = ['Suzuki Djebel 200']
 
 link_to_service_manual = 'https://disk.yandex.ru/i/gWonEIVopPJnGA'
 
-# Включаем логирование, чтобы не пропустить важные сообщения
-logging.basicConfig(level=logging.INFO, filename=cfg['log_file'],
-                    filemode="a")
+time_begin = datetime.now()
 
 # Объект бота
-bot = Bot(token=TETOKEN)
+bot = ''
 
 # Диспетчер
 dp = Dispatcher()
 
 
-def init():
+def init(cli_args: dict):
     """Initial settings for start."""
-# Делаем запись в лог о старте бота. Туда же будут
-# помещены запросы и ответы:
-    time_begin = datetime.now()
+
+    # Load settings from configuration file.
+    global cfg
+    cfg = config.Config(cli_args.bot_config)
+
+    global TETOKEN
+    TETOKEN = cfg['tetoken']
+
+    global BOT_TAG
+    BOT_TAG = f"bot<{cfg['bot_name']}>"
+
+    global bot
+    bot = Bot(token=TETOKEN)
+
+    global MOTO_BIKES
+    MOTO_BIKES = ['Suzuki Djebel 200']
+
+    global link_to_service_manual
+    link_to_service_manual = 'https://disk.yandex.ru/i/gWonEIVopPJnGA'
+
+    # Включаем логирование, чтобы не пропустить важные сообщения
+    logging.basicConfig(level=logging.INFO, filename=cfg['log_file'],
+                        filemode="a")
+    # Делаем запись в лог о старте бота. Туда же будут
+    # помещены запросы и ответы:
     msg = f"{time_begin} {BOT_TAG} - start"
     logging.info(msg)
 
@@ -108,7 +130,7 @@ async def handle_user_query(message: Message, bot: Bot):
 
     logging.info(info_str)
 
-    model_answer = mio.make_answer(query)
+    model_answer = mio.make_answer(query, args.models_config)
     time_end = datetime.now()
     time_dif = time_begin - time_end
     seconds_in_day = 24 * 60 * 60
@@ -124,10 +146,30 @@ async def handle_user_query(message: Message, bot: Bot):
     await message.answer(model_answer)
 
 
+def parse_args():
+    """CLI options parsing."""
+
+    prog_name = os.path.basename(__file__).split(".")[0]
+
+    parser = argparse.ArgumentParser(
+        prog=prog_name,
+        description="Telegram bot.",
+        epilog="Text at the bottom of help",
+    )
+    parser.add_argument("-c", dest="bot_config", help="Bot configuration file path.")
+    parser.add_argument("-m", dest="models_config", help="Model configuration file path.")
+    return parser.parse_args()
+
+
 async def main():
     """Start bot."""
-    init()
-    print("Bot started. See log in bot_logs/bot.log")
+
+    global args
+    args = parse_args()
+    print(f"args: {args}")
+    init(args)
+    print(f"Bot <{cfg['bot_name']}>  started. See log in <{cfg['log_file']}>.")
+
     # Запуск процесса поллинга новых апдейтов
     await dp.start_polling(bot)
 

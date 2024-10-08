@@ -50,8 +50,20 @@ def build_prompt(user_query: str, rag_context: str) -> str:
 
     return prompt
 
-def get_rag_context(query: str) -> str:
+def get_rag_context(query: str, config_file: str) -> str:
     """Get reference text."""
+
+    cfg = config.Config(config_file)
+    global EMBED_MODEL
+    EMBED_MODEL = cfg["embedmodel"]
+    global MAIN_MODEL
+    MAIN_MODEL = cfg["mainmodel"]
+    global USE_CHAT
+    USE_CHAT = cfg['use_chat']
+    global COLLECTION_NAME
+    COLLECTION_NAME = cfg['collection_name']
+    global PRINT_CONTEXT
+    PRINT_CONTEXT = cfg['print_context']
 
     collection = get_collection()
     if EMBED_MODEL == 'navec':
@@ -65,11 +77,11 @@ def get_rag_context(query: str) -> str:
     return context
 
 
-def make_answer(user_query: str) -> str:
+def make_answer(user_query: str, config_file: str) -> str:
     """ Make single answer."""
-
+    print(f'config_file: {config_file}')
     query = user_query
-    context = get_rag_context(query)
+    context = get_rag_context(query, config_file)
     modelquery = build_prompt(query, context)
 
     if PRINT_CONTEXT is True:
