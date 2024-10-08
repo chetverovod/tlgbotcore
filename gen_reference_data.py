@@ -5,15 +5,10 @@ from mattsollamatools import chunk_text_by_sentences
 import config
 from os import listdir
 from os.path import isfile, join
+import argparse
 
 
-# Load settings from configuration file.
-cfg = config.Config('models.cfg')
-EMBED_MODEL = cfg["embedmodel"]
-COLLECTION_NAME = cfg['collection_name']
-REF_DOCS_PATH = cfg['reference_docs_path']
-BEGIN_TAG = cfg['begin_tag']
-CHUNKING = cfg['chunking']  
+
 
 
 def chunk_text_by_tags(
@@ -84,6 +79,45 @@ def build_collection() -> int:
                 metadatas={"source": filename},
                 )
     return chunks_counter
+
+
+def init(cli_args: dict):
+    """Initial settings for start."""
+    # Load settings from configuration file.
+    global cfg
+    # cfg = config.Config('models.cfg')
+    cfg = config.Config(cli_args.models_config)
+    global EMBED_MODEL 
+    EMBED_MODEL = cfg["embedmodel"]
+    global COLLECTION_NAME
+    COLLECTION_NAME = cfg['collection_name']
+    global REF_DOCS_PATH
+    REF_DOCS_PATH = cfg['reference_docs_path']
+    global BEGIN_TAG
+    BEGIN_TAG = cfg['begin_tag']
+    global CHUNKING
+    CHUNKING = cfg['chunking']
+
+
+def parse_args():
+    """CLI options parsing."""
+
+    prog_name = os.path.basename(__file__).split(".")[0]
+
+    parser = argparse.ArgumentParser(
+        prog=prog_name,
+        description="Telegram bot.",
+        epilog="Text at the bottom of help",
+    )
+    parser.add_argument("-m", dest="models_config", help="Model configuration file path.")
+    return parser.parse_args()
+
+
+global args
+args = parse_args()
+print(f"args: {args}")
+init(args)
+# print(f"Bot <{cfg['bot_name']}>  started. See log in <{cfg['log_file']}>.")
 
 start_time = time.time()
 chunks = build_collection()
