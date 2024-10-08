@@ -21,7 +21,7 @@ def chunk_text_by_tags(
         overlap: int = 0) -> list[str]:
 
     data = source_text.split(tag_of_begin)
-    cleaned_data = [item for item in data if item]
+    cleaned_data = [item.strip() for item in data if item]
     return cleaned_data
 
 

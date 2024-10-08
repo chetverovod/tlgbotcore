@@ -76,14 +76,14 @@ def test_break_liquid():
 
 
 def test_motor_oil_type():
-    query = "Моторное масло?"
+    query = "Тип моторного масла?"
     model_answer = mio.get_rag_context(query) 
     LOGGER.info(model_answer)
     assert "10W40" in model_answer
 
 
 def test_motor_oil_type_2():
-    query = "Моторное масло?"
+    query = "Тип моторного масла?"
     model_answer = mio.get_rag_context(query) 
     LOGGER.info(model_answer)
     assert "API SE, SF или SG с вязкостью SAE 10W40" in model_answer
