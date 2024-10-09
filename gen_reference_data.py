@@ -2,18 +2,16 @@ import embeddings_ctrl as ec
 import os
 import ollama, chromadb, time
 from mattsollamatools import chunk_text_by_sentences
+from model_tools import split_into_parts, split_into_paragraphs, split_into_paragraphs2
 import config
 from os import listdir
 from os.path import isfile, join
 import argparse
 
 
-
-
-
-def chunk_text_by_tags(
-        source_text, tag_of_begin: str, tag_of_end: str = '',
-        overlap: int = 0) -> list[str]:
+def chunk_text_by_tags(source_text, tag_of_begin: str,
+                       tag_of_end: str = '',
+                       overlap: int = 0) -> list[str]:
 
     data = source_text.split(tag_of_begin)
     cleaned_data = [item.strip() for item in data if item]
@@ -54,15 +52,17 @@ def build_collection() -> int:
             chunks = chunk_text_by_tags(
                 source_text=text, tag_of_begin=BEGIN_TAG)
         else:
-            raise Exception(
+            raise ValueError(
                 f"CHUNKING must be 'by_sentences' or 'by_tags', not {CHUNKING}"
             )
 
         print(f"{len(chunks)} chunks")
-        for ch in chunks:
-            print(ch)
-            print('\n------------------------')
+
+        if SPLIT_BY_PARAGRAPHS:
+            chunks = text.split('<paragraph>')
+
         chunks_counter += len(chunks)
+
         for index, chunk in enumerate(chunks):
             if EMBED_MODEL == "navec":
                 embed = ec.navec_embeddings(chunk)["embedding"]
@@ -97,7 +97,9 @@ def init(cli_args: dict):
     BEGIN_TAG = cfg['begin_tag']
     global CHUNKING
     CHUNKING = cfg['chunking']
-
+    
+    global SPLIT_BY_PARAGRAPHS
+    SPLIT_BY_PARAGRAPHS = cfg['split_by_paragraphs']
 
 def parse_args():
     """CLI options parsing."""

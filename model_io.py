@@ -30,19 +30,11 @@ def get_collection() -> chromadb.Collection:
 def build_prompt(user_query: str, rag_context: str) -> str:
     """Build prompt for LLM model."""
 
-    prompt = ("You consultant for motorbike 'Suzuki Djebel 200 service'"
-              f"Answer in Russian to question:  {user_query}."
-              " Every time point source, chapter number and page number"
-              " where answer info was found."
-              " In answer use point as a decimal separator in float point numbers."
-              #" Answer should be formatted in markdown format."
-              " Use as reference a following text from service manual:"
-              f"{rag_context}"
-              )
     prompt = BASE_FOR_PROMPT.replace('<user_query>', user_query)
     prompt = prompt.replace('<rag_context>', rag_context)
 
     return prompt
+
 
 def get_rag_context(query: str, config_file: str) -> str:
     """Get reference text."""
@@ -76,7 +68,7 @@ def get_rag_context(query: str, config_file: str) -> str:
 
 def make_answer(user_query: str, config_file: str) -> str:
     """ Make single answer."""
-    print(f'config_file: {config_file}')
+
     query = user_query
     context = get_rag_context(query, config_file)
     modelquery = build_prompt(query, context)

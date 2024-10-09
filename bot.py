@@ -14,6 +14,7 @@ import config
 import argparse
 import keyboard as kb
 import model_io as mio
+from model_tools import split_into_parts
 
 
 time_begin = datetime.now()
@@ -58,6 +59,9 @@ def init(cli_args: dict):
     global START_GREETINGS
     START_GREETINGS = cfg['start_greetings']
 
+    global MAX_MESSAGE_SIZE 
+    MAX_MESSAGE_SIZE = 4096
+
     # Включаем логирование, чтобы не пропустить важные сообщения
     logging.basicConfig(level=logging.INFO, filename=cfg['log_file'],
                         filemode="a")
@@ -65,6 +69,7 @@ def init(cli_args: dict):
     # помещены запросы и ответы:
     msg = f"{time_begin} {BOT_TAG} - start"
     logging.info(msg)
+
 
 
 @dp.message(Command("help"))
@@ -132,8 +137,15 @@ async def handle_user_query(message: Message, bot: Bot):
                  f"user<{message.from_user.username}> - "
                  f"answer<{model_answer}>\n")
     #await message.answer( model_answer, parse_mode=ParseMode.MARKDOWN_V2)
-    await message.answer(model_answer)
 
+
+    if len(model_answer) < MAX_MESSAGE_SIZE:
+        await message.answer(model_answer)
+    else:    
+        await message.answer("Ответ будет на несколько сообщений:")
+        parts = split_into_parts(model_answer, MAX_MESSAGE_SIZE)
+        for part in parts:
+            await message.answer(part)
 
 def parse_args():
     """CLI options parsing."""
