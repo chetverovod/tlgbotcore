@@ -60,7 +60,8 @@ def build_collection() -> int:
 
         if SPLIT_BY_PARAGRAPHS:
             chunks = text.split('<paragraph>')
-
+            chunks.remove(chunks[-1])  # remove empty []     
+        
         chunks_counter += len(chunks)
 
         for index, chunk in enumerate(chunks):
@@ -70,6 +71,7 @@ def build_collection() -> int:
                 embed = ollama.embeddings(model=EMBED_MODEL, prompt=chunk)[
                     "embedding"
                 ]
+            print(f"{index} {chunk}")    
             print(".", end="", flush=True)
 
             collection.add(
