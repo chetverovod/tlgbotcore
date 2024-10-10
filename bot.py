@@ -147,6 +147,7 @@ async def handle_user_query(message: Message, bot: Bot):
         for part in parts:
             await message.answer(part)
 
+
 def parse_args():
     """CLI options parsing."""
 
