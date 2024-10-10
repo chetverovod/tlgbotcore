@@ -59,7 +59,7 @@ def build_collection() -> int:
         print(f"{len(chunks)} chunks")
 
         if SPLIT_BY_PARAGRAPHS:
-            chunks = text.split('<paragraph>')
+            chunks = text.replace('</paragraph>', '').split('<paragraph>')
             chunks.remove(chunks[-1])  # remove empty []     
         
         chunks_counter += len(chunks)
