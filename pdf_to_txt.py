@@ -76,7 +76,6 @@ def replace_space_lines_with_linebreaks(text):
     l_text = text.split('\n')
     res = []
     for t in l_text:
-        # new_text = re.sub(r'^\s*$', f"{PARAGRAPH_BORDER}", t)
         new_text = re.sub(r'^\s*$', "", t)
 
         res.append(new_text)
@@ -163,19 +162,11 @@ def mark_page_headers(text, pattern: str = r'(.+\.\.\.\s)'):
 
 
 def mark_page_headers_2(text, patt):
-    #text = '\n Постановление Правительства РФ от 16.09.2020 N 1479 \n   \n "Об утверждении Правил противопожарного режима в \n\n Российской Федераци... \n\n' 
     p = patt.split(' ')
     m = '\\n*\\s*\\n*\\s*'.join(p)
-    print ('mark_page_headers_2: ', m)
-    #exit(9)
     pattern = re.compile(f'(\\n*\\s*\\n*\\s*{m})')
     replacement = rf'{patt}\n<{PAGE_HEADER_END}>'
-    #print('mark_page_headers_2: ', pattern)
-    #print('text: {', text, '}')
-    #replacement = f'<{PAGE_HEADER_END}>'
     res = re.sub(pattern, replacement, text)
-    print('res: {', res, '}') 
-    # exit(0)
     return res
 
 
