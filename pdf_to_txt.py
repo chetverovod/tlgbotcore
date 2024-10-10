@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import re
 from os import listdir
@@ -23,15 +25,20 @@ PAGE_NUMBER = 'page_number'  # page number
 END_OF_PAGE = 'end_of_page'
 DOCUMENT = 'document'
 PAGE_SEPARATOR = '<------------------page separator-------------------->'
-
+SENTENCE_SEPARATOR = '. ' 
 STAB = 'blabla'
 
+def find_max_integer_key(dictionary):
+    max_value = max(dictionary.values())
+    for key, value in dictionary.items():
+        if value == max_value:
+            return key
 
-def count_phrase_frequency(file_name):
-    with open(file_name, 'r', encoding='utf-8') as input_file:
-        text = input_file.read()
-    
-    sentences = text.split('. ')
+
+def count_phrase_frequency(text, page_counter):
+    t = re.sub(r'\n+', ' ', text)
+    t = re.sub(r'\s+', ' ', t)
+    sentences = t.split(SENTENCE_SEPARATOR)
     phrase_counts = defaultdict(lambda: 0)
     
     for sentence in sentences:
@@ -40,12 +47,18 @@ def count_phrase_frequency(file_name):
             for j in range(i + 1, len(words) + 1):
                 phrase = ' '.join(words[i:j])
                 phrase_counts[phrase] += 1
-    
+
+    ph = {} 
     for phrase, count in phrase_counts.items():
-        print(phrase, count)
+        if (count > (page_counter - 5)) and (count < (page_counter + 5)):
+            score = len(phrase.split(' ')) * count
+            ph[phrase] = score
+
+    doc_name = find_max_integer_key(ph)
+    return doc_name
 
 
-def replace_drop_words_by_stab(txt: str, drop_words_list: list[str]) -> str:
+def replace_drop_words_by_stab(txt: str, drop_words_list: list[str], stab: str = STAB) -> str:
     for word in drop_words_list:
         if 'r"' in word:
             word = word.replace('r"', '"')
@@ -55,7 +68,7 @@ def replace_drop_words_by_stab(txt: str, drop_words_list: list[str]) -> str:
             # Заменяем все вхождения
             txt = re.sub(pattern, ' ', txt)
         else:
-            txt = txt.replace(word, STAB)
+            txt = txt.replace(word, stab)
     return txt
 
 
@@ -63,7 +76,9 @@ def replace_space_lines_with_linebreaks(text):
     l_text = text.split('\n')
     res = []
     for t in l_text:
-        new_text = re.sub(r'^\s*$', f"{PARAGRAPH_BORDER}", t)
+        # new_text = re.sub(r'^\s*$', f"{PARAGRAPH_BORDER}", t)
+        new_text = re.sub(r'^\s*$', "", t)
+
         res.append(new_text)
     l_text = res
     empty_count = 0
@@ -79,6 +94,11 @@ def replace_space_lines_with_linebreaks(text):
 
     return '\n'.join(res)
 
+
+def set_paragraph_borders(text):
+    l_text = text.split('\n\n')
+    res = f'<{PARAGRAPH_BORDER}>'.join(l_text)
+    return res 
 
 def mark_chunks_on_page(text: str, source_name: str = '' ) -> str:
     parts = text.split(f"<{PAGE_HEADER_END}>")
@@ -102,8 +122,8 @@ def mark_chunks_on_page(text: str, source_name: str = '' ) -> str:
     match = re.search(pattern, parts[1])
     if match:
         page = f"страница {match.group(1)}"
-    l_text = parts[1].split(f'<{PAGE_NUMBER}')
-    l_text = l_text[0].split(f'{PARAGRAPH_BORDER}')
+    l_text = parts[1].split(f'<{PAGE_NUMBER}>')
+    l_text = l_text[0].split(f'<{PARAGRAPH_BORDER}>')
    #  print('l_text: ', l_text)     
     src = header
     src = src.replace('\n', ' ')
@@ -135,17 +155,56 @@ def mark_page_numbers(text):
     return res
 
 
-def mark_page_headers(text):
-    pattern = r'(.+\.\.\.\s)'
+def mark_page_headers(text, pattern: str = r'(.+\.\.\.\s)'):
+    #pattern = r'(.+\.\.\.\s)'
     replacement = rf'\1\n<{PAGE_HEADER_END}>'
     res = re.sub(pattern, replacement, text)
     return res
 
 
-def build_single_txt_doc(filename: str, mode: str = ''):
+def mark_page_headers_2(text, patt):
+    #text = '\n Постановление Правительства РФ от 16.09.2020 N 1479 \n   \n "Об утверждении Правил противопожарного режима в \n\n Российской Федераци... \n\n' 
+    p = patt.split(' ')
+    m = '\\n*\\s*\\n*\\s*'.join(p)
+    print ('mark_page_headers_2: ', m)
+    #exit(9)
+    pattern = re.compile(f'(\\n*\\s*\\n*\\s*{m})')
+    replacement = rf'{patt}\n<{PAGE_HEADER_END}>'
+    #print('mark_page_headers_2: ', pattern)
+    #print('text: {', text, '}')
+    #replacement = f'<{PAGE_HEADER_END}>'
+    res = re.sub(pattern, replacement, text)
+    print('res: {', res, '}') 
+    # exit(0)
+    return res
+
+
+def build_flat_txt_doc(filename: str,
+                       page_separator: str = '\n\n') -> int:
     if not filename.endswith(".pdf"):
         return -1
     page_counter = 0
+    complete_text = ''
+    with pdfplumber.open(filename) as pdf:
+        pages = pdf.pages
+        for page in pages:
+            txt = page.extract_text(layout=True)
+            txt = replace_drop_words_by_stab(txt, DROP_WORDS, "")
+            txt = f'{txt}{page_separator}'
+            complete_text = f'{complete_text}{txt}'
+            page_counter += 1
+    return complete_text, page_counter
+
+
+def build_single_txt_doc(filename: str, mode: str = '',
+                         page_separator: str = '\n\n') -> int:
+    if not filename.endswith(".pdf"):
+        return -1
+    page_counter = 0
+    complete_text = ''
+    doc_name = count_phrase_frequency(*build_flat_txt_doc(filename, SENTENCE_SEPARATOR))
+    #print(f'document name: <{doc_name}>')
+    source_name = ''
     output_filename = filename.replace(".pdf", ".txt")
     with open(output_filename, "w", encoding="utf-8") as f:
         f.write(f"<{DOCUMENT}>\n{filename}\n</{DOCUMENT}>\n")
@@ -153,24 +212,33 @@ def build_single_txt_doc(filename: str, mode: str = ''):
     with pdfplumber.open(filename) as pdf:
         pages = pdf.pages
         local_page_counter = 0
-        complete_text = ''
         for index, page in enumerate(pages):
             txt = page.extract_text(layout=True)
 
-            if mode != 'flat':
+            if mode == 'flat':
+                txt = replace_drop_words_by_stab(txt, DROP_WORDS, "")
+            else:
                 txt = replace_drop_words_by_stab(txt, DROP_WORDS)
                 if index == 0:
                     txt = re.sub(r'\s+', ' ', txt)
                     source_name = txt.replace(STAB, ' ')
-                    txt = f'Название документа...\n\n{txt}\nСтраница 0 из 0'
+                    #txt = f'Название документа...\n\n{txt}\nСтраница 0 из 0\n'
+                    #txt = f'{doc_name}\n\n{txt}\nСтраница 0 из 0\n'
+                    txt = f'{doc_name}\n<{PAGE_HEADER_END}>\n{txt}\nСтраница 0 из 0\n'
+                    #print(txt)
+                #txt = mark_page_headers_2(txt, doc_name)
                 txt = replace_space_lines_with_linebreaks(txt)
                 txt = txt.replace(STAB, ' ')
                 txt = mark_page_numbers(txt)
-                txt = mark_page_headers(txt)
+                #txt = mark_page_headers(txt)
+                txt = mark_page_headers_2(txt, doc_name)
+                txt = set_paragraph_borders(txt)
+                #print(txt) 
+                #exit(0)
                 # txt = mark_chunks_on_page(txt)
                 txt = mark_chunks_on_page(txt, source_name)
             # txt = f'{txt}\n{PAGE_SEPARATOR}\n\n'
-            txt = f'{txt}\n\n'
+            txt = f'{txt}{page_separator}'
             complete_text = f'{complete_text}{txt}'
             local_page_counter += 1
             page_counter += 1
@@ -179,7 +247,7 @@ def build_single_txt_doc(filename: str, mode: str = ''):
             #if local_page_counter > 3:
             #    exit(0)    
         print(f"\n{filename} {local_page_counter} pages found.")
-    return complete_text
+    return complete_text, page_counter
 
 
 def build_txt(mode: str = '') -> int:
@@ -214,7 +282,9 @@ def parse_args():
                         " If set 'flat' the out data will be as is.")
     parser.add_argument("-i", dest="input_file_path", help="Input"
                         " pdf-file path.")
-    parser.add_argument("-f", dest="frequency",  action=argparse.BooleanOptionalAction, help="Prints frequency of words in input"
+    parser.add_argument("-f", dest="frequency",
+                        action=argparse.BooleanOptionalAction,
+                        help="Prints frequency of words in input"
                         " pdf-file.")
     return parser.parse_args()
 
@@ -229,16 +299,21 @@ def main():
         else:
             build_txt()
             return
-        if args.frequency is not None:
-            complete_txt = build_single_txt_doc(args.input_file_path, 'flat')
-            count_phrase_frequency(complete_txt)
-            return
-                                   
     else:
+        if args.frequency is True:
+            print("Frequency of words in input pdf-file.")
+            complete_txt, page_counter = build_flat_txt_doc(
+                args.input_file_path, 'flat', f"{SENTENCE_SEPARATOR}\n\n")
+            doc_name = count_phrase_frequency(complete_txt, page_counter)
+            print(f'document name: <{doc_name}>')
+            return
+
         if args.output_mode == 'flat':
             build_single_txt_doc(args.input_file_path, args.output_mode)
-        else:    
+            return
+        else:
             build_single_txt_doc(args.input_file_path)
+            return
 
 
 if __name__ == "__main__":
