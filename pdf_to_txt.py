@@ -35,7 +35,7 @@ def find_max_integer_key(dictionary):
             return key
 
 
-def count_phrase_frequency(text, page_counter):
+def count_phrase_frequency(text, page_counter, print_top_n=-1):
     t = re.sub(r'\n+', ' ', text)
     t = re.sub(r'\s+', ' ', t)
     sentences = t.split(SENTENCE_SEPARATOR)
@@ -51,10 +51,18 @@ def count_phrase_frequency(text, page_counter):
     ph = {} 
     for phrase, count in phrase_counts.items():
         if (count > (page_counter - 5)) and (count < (page_counter + 5)):
-            score = len(phrase.split(' ')) * count
+            words = phrase.split(' ')
+            if words[0][0].isupper():
+                upper = 1.5
+            else:
+                upper = 1
+            score = len(words) * count * upper
             ph[phrase] = score
 
     doc_name = find_max_integer_key(ph)
+    if print_top_n > 0:
+        for phrase, count in sorted(ph.items(), key=lambda item: item[1], reverse=True)[:print_top_n]:
+            print(f'phrase: "{phrase}"  score: {count}')
     return doc_name
 
 
@@ -194,12 +202,12 @@ def build_single_txt_doc(filename: str, mode: str = '',
     page_counter = 0
     complete_text = ''
     doc_name = count_phrase_frequency(*build_flat_txt_doc(filename, SENTENCE_SEPARATOR))
-    #print(f'document name: <{doc_name}>')
     source_name = ''
     output_filename = filename.replace(".pdf", ".txt")
     with open(output_filename, "w", encoding="utf-8") as f:
         f.write(f"<{DOCUMENT}>\n{filename}\n</{DOCUMENT}>\n")
-    print(f"\nDocument: {filename}")
+    print(f"\nDocument file: {filename}")
+    print(f'Document name from page headers: <{doc_name}>')
     with pdfplumber.open(filename) as pdf:
         pages = pdf.pages
         local_page_counter = 0
@@ -294,8 +302,8 @@ def main():
         if args.frequency is True:
             print("Frequency of words in input pdf-file.")
             complete_txt, page_counter = build_flat_txt_doc(
-                args.input_file_path, 'flat', f"{SENTENCE_SEPARATOR}\n\n")
-            doc_name = count_phrase_frequency(complete_txt, page_counter)
+                args.input_file_path, f"{SENTENCE_SEPARATOR}\n\n")
+            doc_name = count_phrase_frequency(complete_txt, page_counter, 10)
             print(f'document name: <{doc_name}>')
             return
 
