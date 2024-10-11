@@ -195,10 +195,35 @@ def build_flat_txt_doc(filename: str,
     return complete_text, page_counter
 
 
+def get_page_numbers_list(filename: str) -> list[int]:
+    if not filename.endswith(".pdf"):
+        raise ValueError(f'Not a pdf file: {filename}')
+    with pdfplumber.open(filename) as pdf:
+        pages = pdf.pages
+        page_count = len(pages)
+        score_list = []
+        for n in range(1, page_count + 1):
+            score = 0
+            p = n
+            for _, page in enumerate(pages):
+                page_txt = page.extract_text(layout=True)
+                if f' {n}' in page_txt:
+                    score += 1
+                else:
+                    score -= 1
+                p += 1
+            if score > 0:
+                #score_list.append((n, (score - page_count)/page_count))
+                score_list.append((n, round(score/page_count, 3)))
+    print(f"page_count: {page_count}")
+    print(f"page_score list: {score_list}")
+    exit(8)
+    return score_list
+
 def build_single_txt_doc(filename: str, mode: str = '',
                          page_separator: str = '\n\n') -> int:
     if not filename.endswith(".pdf"):
-        return -1
+        raise ValueError(f'Not a pdf file: {filename}')
     page_counter = 0
     complete_text = ''
     doc_name = count_phrase_frequency(*build_flat_txt_doc(filename, SENTENCE_SEPARATOR))
@@ -208,6 +233,7 @@ def build_single_txt_doc(filename: str, mode: str = '',
         f.write(f"<{DOCUMENT}>\n{filename}\n</{DOCUMENT}>\n")
     print(f"\nDocument file: {filename}")
     print(f'Document name from page headers: <{doc_name}>')
+    get_page_numbers_list(filename)
     with pdfplumber.open(filename) as pdf:
         pages = pdf.pages
         local_page_counter = 0
