@@ -16,8 +16,8 @@ COLLECTION_NAME = cfg['collection_name']
 REF_DOCS_PATH = cfg['reference_docs_path']
 SOURCE_TAG = cfg['source_tag']
 QUOTE_TAG = cfg['quote_tag']
-CHUNKING = cfg['chunking']  
-DROP_WORDS = cfg['drop_words']  
+CHUNKING = cfg['chunking']
+DROP_WORDS = cfg['drop_words']
 PARAGRAPH_TAG = 'paragraph'
 PARAGRAPH_BORDER = '----paragraph border----'
 PAGE_HEADER_END = 'page_header_end'
@@ -27,6 +27,7 @@ DOCUMENT = 'document'
 PAGE_SEPARATOR = '<------------------page separator-------------------->'
 SENTENCE_SEPARATOR = '. ' 
 STAB = 'blabla'
+
 
 def find_max_integer_key(dictionary):
     max_value = max(dictionary.values())
@@ -40,7 +41,7 @@ def count_phrase_frequency(text, page_counter, print_top_n=-1):
     t = re.sub(r'\s+', ' ', t)
     sentences = t.split(SENTENCE_SEPARATOR)
     phrase_counts = defaultdict(lambda: 0)
-    
+
     for sentence in sentences:
         words = sentence.split()
         for i in range(len(words)):
@@ -48,7 +49,7 @@ def count_phrase_frequency(text, page_counter, print_top_n=-1):
                 phrase = ' '.join(words[i:j])
                 phrase_counts[phrase] += 1
 
-    ph = {} 
+    ph = {}
     for phrase, count in phrase_counts.items():
         if (count > (page_counter - 5)) and (count < (page_counter + 5)):
             words = phrase.split(' ')
@@ -58,11 +59,14 @@ def count_phrase_frequency(text, page_counter, print_top_n=-1):
                 upper = 1
             score = len(words) * count * upper
             ph[phrase] = score
-
-    doc_name = find_max_integer_key(ph)
-    if print_top_n > 0:
-        for phrase, count in sorted(ph.items(), key=lambda item: item[1], reverse=True)[:print_top_n]:
-            print(f'phrase: "{phrase}"  score: {count}')
+    if len(ph) > 0:
+        doc_name = find_max_integer_key(ph)
+        if print_top_n > 0:
+            for phrase, count in sorted(ph.items(), key=lambda item: item[1],
+                                        reverse=True)[:print_top_n]:
+                print(f'phrase: "{phrase}"  score: {count}')
+    else:
+        doc_name = 'not found'
     return doc_name
 
 
@@ -105,33 +109,38 @@ def replace_space_lines_with_linebreaks(text):
 def set_paragraph_borders(text):
     l_text = text.split('\n\n')
     res = f'<{PARAGRAPH_BORDER}>'.join(l_text)
-    return res 
+    return res
 
-def mark_chunks_on_page(text: str, source_name: str = '' ) -> str:
+
+def mark_chunks_on_page(text: str, source_name: str = '') -> str:
+    header = "header not defined"
     parts = text.split(f"<{PAGE_HEADER_END}>")
-    if source_name == '':
-        header = parts[0].strip()
-        header = header.replace(PARAGRAPH_BORDER, ' ')
-        header = re.sub(r'\x20+', ' ', header)
+    if len(parts) < 2:
+        page_body = parts[0]
     else:
-        header = source_name
+        if source_name == '':
+            header = parts[0].strip()
+            header = header.replace(PARAGRAPH_BORDER, ' ')
+            header = re.sub(r'\x20+', ' ', header)
+        else:
+            header = source_name
+        page_body = parts[1:]    
 
-    for i, t in enumerate(parts[1:]):
+    for i, t in enumerate(page_body):
         temp = re.sub(r'\x20+\n', '\n', t)
         temp = re.sub(r'\n\n+', f'{PARAGRAPH_BORDER}\n', temp)
         parts[i] = re.sub(r'\x20+', ' ', temp)
     page = "page not defined"
-    if len(parts) < 2:
-        print('len(parts) < 2')
-        print(parts)
-        exit(0)
+
     pattern = rf'<{PAGE_NUMBER_TAG} (-?\d+)>'
-    match = re.search(pattern, parts[1])
-    if match:
-        page = f"страница {match.group(1)}"
-    l_text = parts[1].split(f'<{PAGE_NUMBER_TAG}>')
-    l_text = l_text[0].split(f'<{PARAGRAPH_BORDER}>')
-   #  print('l_text: ', l_text)     
+    if len(page_body) > 0:
+        match = re.search(pattern, page_body[0])
+        if match:
+            page = f"страница {match.group(1)}"
+        l_text = page_body[0].split(f'<{PAGE_NUMBER_TAG}>')
+        l_text = l_text[0].split(f'<{PARAGRAPH_BORDER}>')
+    else:
+        l_text = ["No textual data"]     
     src = header
     src = src.replace('\n', ' ')
     src = src.replace('  ', ' ')
@@ -176,7 +185,6 @@ def simple_mark_page_numbers(text, page_number: int):
 
 
 def mark_page_headers(text, pattern: str = r'(.+\.\.\.\s)'):
-    #pattern = r'(.+\.\.\.\s)'
     replacement = rf'\1\n<{PAGE_HEADER_END}>'
     res = re.sub(pattern, replacement, text)
     return res
@@ -250,15 +258,19 @@ def build_single_txt_doc(filename: str, mode: str = '',
                          page_separator: str = '\n\n') -> int:
     if not filename.endswith(".pdf"):
         raise ValueError(f'Not a pdf file: {filename}')
+    print(f"\nDocument file: {filename}")
     page_counter = 0
+    complete_text, page_counter = build_flat_txt_doc(filename,
+                                                     SENTENCE_SEPARATOR)
+    print(f'page_counter: {page_counter}')
+    print(f'len {len(complete_text)}')                                                 
+    doc_name = count_phrase_frequency(complete_text, page_counter)
+                                                          
     complete_text = ''
-    doc_name = count_phrase_frequency(*build_flat_txt_doc(filename,
-                                                          SENTENCE_SEPARATOR))
     source_name = ''
     output_filename = filename.replace(".pdf", ".txt")
     with open(output_filename, "w", encoding="utf-8") as f:
         f.write(f"<{DOCUMENT}>\n{filename}\n</{DOCUMENT}>\n")
-    print(f"\nDocument file: {filename}")
     print(f'Document name from page headers: <{doc_name}>')
     current_page = get_page_numbers_list(filename)
     with pdfplumber.open(filename) as pdf:
@@ -309,10 +321,10 @@ def build_single_txt_doc(filename: str, mode: str = '',
 
 def build_txt(mode: str = '') -> int:
     files = [f for f in listdir(REF_DOCS_PATH) if isfile(join(REF_DOCS_PATH, f))]
-    c = 0 
+    c = 0
     for path in files:
         if path.endswith(".pdf"):
-            c += 1    
+            c += 1
     print(f"{c} pdf files found.")
     for path in files:
         relative_path = REF_DOCS_PATH + '/' + path
@@ -323,8 +335,8 @@ def build_txt(mode: str = '') -> int:
         if extentions[-1] != "pdf":
             continue
         # Пока игнорируем этот документ
-        if "3. check-list2021.pdf" in filename:
-            continue
+       # if "3. check-list2021.pdf" not in filename:
+       #     continue
         build_single_txt_doc(filename, mode)
 
 
