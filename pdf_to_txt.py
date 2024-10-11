@@ -291,10 +291,10 @@ def build_single_txt_doc(filename: str, mode: str = '',
     page_counter = 0
     complete_text, page_counter = build_flat_txt_doc(filename,
                                                      SENTENCE_SEPARATOR)
-    print(f'Symbols in document: {len(complete_text)}')                                                 
+    print(f'Symbols in document: {len(complete_text)}')
     print(f'Page_counter: {page_counter}')
     doc_name = count_phrase_frequency(complete_text, page_counter)
-                                                          
+
     complete_text = ''
     source_name = ''
     output_filename = filename.replace(".pdf", ".txt")
@@ -317,7 +317,6 @@ def build_single_txt_doc(filename: str, mode: str = '',
                     source_name = txt.replace(STAB, ' ')
                     source_name = re.sub(r'_{2,}', ' ', source_name)
                     txt = f'{doc_name}\n<{PAGE_HEADER_END}>\n{txt}\nСтраница 0 из 0\n'
-                # txt = replace_underscore_lines_with_linebreaks(txt)
                 txt = replace_space_lines_with_linebreaks(txt)
                 txt = txt.replace(STAB, ' ')
                 if current_page is None:
@@ -325,28 +324,21 @@ def build_single_txt_doc(filename: str, mode: str = '',
                 else:
                     txt = simple_mark_page_numbers(txt, current_page)
                     current_page += 1
-                
-                #txt = mark_page_headers(txt)
+
                 txt = mark_page_headers_2(txt, doc_name)
                 txt = set_paragraph_borders(txt)
-                #print(txt) 
-                #exit(0)
-                # txt = mark_chunks_on_page(txt)
                 txt = mark_chunks_on_page(txt, source_name)
-            # txt = f'{txt}\n{PAGE_SEPARATOR}\n\n'
-            txt = f'{txt}{page_separator}'
+            txt = f'{txt}\n{page_separator}'
             complete_text = f'{complete_text}{txt}'
             local_page_counter += 1
             page_counter += 1
             with open(output_filename, "a", encoding="utf-8") as f:
                 f.write(f"\n{txt}\n")
-            #if local_page_counter > 3:
-            #    exit(0)    
         print(f"{local_page_counter} pages found.")
     return complete_text, page_counter
 
 
-def build_txt(mode: str = '') -> int:
+def build_txt(mode: str = '', page_separator: str = '') -> int:
     files = [f for f in listdir(REF_DOCS_PATH) if isfile(join(REF_DOCS_PATH, f))]
     c = 0
     for path in files:
@@ -361,10 +353,10 @@ def build_txt(mode: str = '') -> int:
         # Игнорируем не pdf-файлы.
         if extentions[-1] != "pdf":
             continue
-        # Пока игнорируем этот документ
-       # if "3. check-list2021.pdf" not in filename:
-       #     continue
-        build_single_txt_doc(filename, mode)
+        if page_separator == '':
+            build_single_txt_doc(filename, mode)
+        else:
+            build_single_txt_doc(filename, mode, page_separator)
 
 
 def parse_args():
@@ -396,7 +388,7 @@ def main():
     args = parse_args()
     if args.input_file_path is None:
         if args.output_mode == 'flat':
-            build_txt(args.output_mode)
+            build_txt(args.output_mode, PAGE_SEPARATOR)
         else:
             build_txt()
             return
@@ -412,7 +404,8 @@ def main():
             return
 
         if args.output_mode == 'flat':
-            build_single_txt_doc(args.input_file_path, args.output_mode)
+            build_single_txt_doc(args.input_file_path, args.output_mode,
+                                 PAGE_SEPARATOR)
             return
         else:
             build_single_txt_doc(args.input_file_path)
