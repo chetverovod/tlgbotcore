@@ -19,12 +19,12 @@ QUOTE_TAG = cfg['quote_tag']
 CHUNKING = cfg['chunking']
 DROP_WORDS = cfg['drop_words']
 PARAGRAPH_TAG = 'paragraph'
-PARAGRAPH_BORDER = '----paragraph border----'
+PARAGRAPH_BORDER = '----paragraph_border----'
 PAGE_HEADER_END = 'page_header_end'
 PAGE_NUMBER_TAG = 'page_number'  # page number
 END_OF_PAGE_TAG = 'end_of_page'
 DOCUMENT = 'document'
-PAGE_SEPARATOR = '<------------------page separator-------------------->'
+PAGE_SEPARATOR = '<------------------page_separator-------------------->'
 SENTENCE_SEPARATOR = '. ' 
 STAB = 'blabla'
 
@@ -84,6 +84,28 @@ def replace_drop_words_by_stab(txt: str, drop_words_list: list[str], stab: str =
     return txt
 
 
+def replace_underscore_lines_with_linebreaks(text):
+    l_text = text.split('\n')
+    res = []
+    for t in l_text:
+        new_text = re.sub(r'^_{2,}', " ", t)
+
+        res.append(new_text)
+    l_text = res
+    empty_count = 0
+    res = []
+    for t in l_text:
+        new_text = re.sub(r'_{2,}', ' ', t)
+        if f'<{PARAGRAPH_BORDER}>' in new_text or new_text == '':
+            empty_count += 1
+        else:
+            empty_count = 0
+        if empty_count < 2:
+            res.append(new_text)
+
+    return '\n'.join(res)
+
+
 def replace_space_lines_with_linebreaks(text):
     l_text = text.split('\n')
     res = []
@@ -96,7 +118,7 @@ def replace_space_lines_with_linebreaks(text):
     res = []
     for t in l_text:
         new_text = re.sub(r'\s+', ' ', t)
-        if PARAGRAPH_BORDER in new_text or new_text == '':
+        if f'<{PARAGRAPH_BORDER}>' in new_text or new_text == '':
             empty_count += 1
         else:
             empty_count = 0
@@ -120,24 +142,23 @@ def mark_chunks_on_page(text: str, source_name: str = '') -> str:
     else:
         if source_name == '':
             header = parts[0].strip()
-            header = header.replace(PARAGRAPH_BORDER, ' ')
+            header = header.replace(f'<{PARAGRAPH_BORDER}>', ' ')
             header = re.sub(r'\x20+', ' ', header)
         else:
             header = source_name
-        page_body = parts[1:]    
+        page_body = parts[1]    
+    temp = re.sub(r'\x20+\n', '\n', page_body)
+    temp = re.sub(r'\n\n+', f'<{PARAGRAPH_BORDER}>\n', temp)
+    page_body = re.sub(r'\x20+', ' ', temp)
 
-    for i, t in enumerate(page_body):
-        temp = re.sub(r'\x20+\n', '\n', t)
-        temp = re.sub(r'\n\n+', f'{PARAGRAPH_BORDER}\n', temp)
-        page_body[i] = re.sub(r'\x20+', ' ', temp)
     page = "page not defined"
 
     pattern = rf'<{PAGE_NUMBER_TAG} (-?\d+)>'
     if len(page_body) > 0:
-        match = re.search(pattern, page_body[0])
+        match = re.search(pattern, page_body)
         if match:
             page = f"страница {match.group(1)}"
-        l_text = page_body[0].split(f'<{PAGE_NUMBER_TAG}>')
+        l_text = page_body.split(f'<{PAGE_NUMBER_TAG}>')
         l_text = l_text[0].split(f'<{PARAGRAPH_BORDER}>')
     else:
         l_text = ["No textual data"]     
@@ -286,11 +307,9 @@ def build_single_txt_doc(filename: str, mode: str = '',
                 if index == 0:
                     txt = re.sub(r'\s+', ' ', txt)
                     source_name = txt.replace(STAB, ' ')
-                    #txt = f'Название документа...\n\n{txt}\nСтраница 0 из 0\n'
-                    #txt = f'{doc_name}\n\n{txt}\nСтраница 0 из 0\n'
+                    source_name = re.sub(r'_{2,}', ' ', source_name)
                     txt = f'{doc_name}\n<{PAGE_HEADER_END}>\n{txt}\nСтраница 0 из 0\n'
-                    #print(txt)
-                #txt = mark_page_headers_2(txt, doc_name)
+                # txt = replace_underscore_lines_with_linebreaks(txt)
                 txt = replace_space_lines_with_linebreaks(txt)
                 txt = txt.replace(STAB, ' ')
                 if current_page is None:
