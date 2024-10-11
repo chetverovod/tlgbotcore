@@ -59,15 +59,12 @@ def count_phrase_frequency(text, page_counter, print_top_n=-1):
 
     ph = {}
     for phrase, count in phrase_counts.items():
-        #if (count > (page_counter - 5)) and (count < (page_counter + 5)):
         if (count > (page_counter - 7)) and (count < (page_counter + 5)):
-        #if count > 0:
             words = phrase.split(' ')
             if words[0][0].isupper():
                 upper = 1.5
             else:
                 upper = 1
-            #score = count
             score = len(words) * count * upper
             ph[phrase] = score
     if len(ph) > 0:
