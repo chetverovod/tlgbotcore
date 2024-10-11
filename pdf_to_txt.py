@@ -129,7 +129,7 @@ def mark_chunks_on_page(text: str, source_name: str = '') -> str:
     for i, t in enumerate(page_body):
         temp = re.sub(r'\x20+\n', '\n', t)
         temp = re.sub(r'\n\n+', f'{PARAGRAPH_BORDER}\n', temp)
-        parts[i] = re.sub(r'\x20+', ' ', temp)
+        page_body[i] = re.sub(r'\x20+', ' ', temp)
     page = "page not defined"
 
     pattern = rf'<{PAGE_NUMBER_TAG} (-?\d+)>'
@@ -262,8 +262,8 @@ def build_single_txt_doc(filename: str, mode: str = '',
     page_counter = 0
     complete_text, page_counter = build_flat_txt_doc(filename,
                                                      SENTENCE_SEPARATOR)
-    print(f'page_counter: {page_counter}')
-    print(f'len {len(complete_text)}')                                                 
+    print(f'Symbols in document: {len(complete_text)}')                                                 
+    print(f'Page_counter: {page_counter}')
     doc_name = count_phrase_frequency(complete_text, page_counter)
                                                           
     complete_text = ''
