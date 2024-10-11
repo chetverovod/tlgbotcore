@@ -59,7 +59,9 @@ def count_phrase_frequency(text, page_counter, print_top_n=-1):
 
     ph = {}
     for phrase, count in phrase_counts.items():
-        if (count > (page_counter - 7)) and (count < (page_counter + 5)):
+        #if (count > (page_counter - 7)) and (count < (page_counter + 5)):
+        if (count > (page_counter/2)) and (count < (page_counter + 5)):
+        #if (count > 0):
             words = phrase.split(' ')
             if words[0][0].isupper():
                 upper = 1.5
@@ -259,7 +261,6 @@ def get_page_numbers_list(filename: str) -> list[int]:
             p = n
             for _, page in enumerate(pages):
                 page_txt = page.extract_text(layout=True)
-                #if f' {n}' in page_txt:
                 if f'{p}' in page_txt:
                     score += 1
                 else:
