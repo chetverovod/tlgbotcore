@@ -279,8 +279,6 @@ def get_page_numbers_list(filename: str) -> list[int]:
     else:
         begining_page = top_rate[0]                
     print(f'beginig_page: {begining_page}')
-    # print(f"page_score list: {score_list}")
-
     return begining_page
 
 
