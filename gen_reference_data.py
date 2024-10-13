@@ -102,6 +102,7 @@ def init(cli_args: dict):
     
     global SPLIT_BY_PARAGRAPHS
     SPLIT_BY_PARAGRAPHS = cfg['split_by_paragraphs']
+    print(f'Collection name: {COLLECTION_NAME}')
 
 def parse_args():
     """CLI options parsing."""
