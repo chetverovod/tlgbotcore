@@ -138,7 +138,6 @@ async def handle_user_query(message: Message, bot: Bot):
                  f"answer<{model_answer}>\n")
     #await message.answer( model_answer, parse_mode=ParseMode.MARKDOWN_V2)
 
-
     if len(model_answer) < MAX_MESSAGE_SIZE:
         await message.answer(model_answer)
     else:    
