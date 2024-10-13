@@ -114,7 +114,8 @@ def parse_args():
         description="Telegram bot.",
         epilog="Text at the bottom of help",
     )
-    parser.add_argument("-m", dest="models_config", help="Model configuration file path.")
+    parser.add_argument("-m", dest="models_config",
+                        help="Model configuration file path.")
     return parser.parse_args()
 
 

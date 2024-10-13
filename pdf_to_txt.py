@@ -11,12 +11,9 @@ from collections import defaultdict
 
 # Load settings from configuration file.
 cfg = config.Config('pdf_to_txt.cfg')
-EMBED_MODEL = cfg["embedmodel"]
-COLLECTION_NAME = cfg['collection_name']
 REF_DOCS_PATH = cfg['reference_docs_path']
 SOURCE_TAG = cfg['source_tag']
 QUOTE_TAG = cfg['quote_tag']
-CHUNKING = cfg['chunking']
 DROP_WORDS = cfg['drop_words']
 PARAGRAPH_TAG = 'paragraph'
 PARAGRAPH_BORDER = '----paragraph_border----'
