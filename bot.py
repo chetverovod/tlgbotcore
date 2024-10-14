@@ -137,6 +137,23 @@ async def handle_user_query(message: Message, bot: Bot):
 
     # Получаем текущее время в часовом поясе ПК
     time_begin = datetime.now()
+
+    # Подготавливаем книгу с предысторией диалогов с текущим юзером.
+    book = []
+    if message.from_user.id in chat_history.keys():
+        book = chat_history[message.from_user.id]
+    else:
+        prehistory = await scan_chats_table(message.from_user.id)
+        print('prehistory', prehistory)
+        prehistory_book = []
+        if prehistory:
+            for user_id, username, question, answer in prehistory:
+                user_record = f'{{"role": "user", "content": "{question}"}}'
+                asistant_record = f'{{"role": "assistant", "content": "{answer}"}}'
+                prehistory_book.append(f'{user_record},\n{asistant_record}')
+            print('prehistory_book', prehistory_book)
+            book = prehistory_book
+
     query = message.text
     info_str = (f"\n{time_begin} bot<{cfg['bot_name']}> - "
                 f"user<{message.from_user.username}> - "
@@ -145,7 +162,7 @@ async def handle_user_query(message: Message, bot: Bot):
 
     logging.info(info_str)
 
-    model_answer = mio.make_answer(query, args.models_config)
+    model_answer = mio.make_answer(query, args.models_config, book)
     time_end = datetime.now()
     time_dif = time_begin - time_end
     seconds_in_day = 24 * 60 * 60
@@ -165,15 +182,8 @@ async def handle_user_query(message: Message, bot: Bot):
     asistant_record = f'{{"role": "assistant", "content": "{model_answer}"}}'
     full_record = f'{user_record},\n{asistant_record}'
     print('full_reocord', full_record)
-    if message.from_user.id in chat_history.keys():
-        book = chat_history[message.from_user.id]
-        book.append(full_record)
-    else:
-        prehistory = await scan_chats_table(message.from_user.id)
-        print('prehistory', prehistory)
-        exit(0)
-        book = [full_record]
-        chat_history[message.from_user.id] = book   
+    
+    book.append(full_record)
 
     # Добавляем эту же информацию в базу данных
     async with aiosqlite.connect(DB_NAME) as db:
@@ -185,7 +195,7 @@ async def handle_user_query(message: Message, bot: Bot):
 
     if len(model_answer) < MAX_MESSAGE_SIZE:
         await message.answer(model_answer)
-    else:    
+    else:
         await message.answer("Ответ будет на несколько сообщений:")
         parts = split_into_parts(model_answer, MAX_MESSAGE_SIZE)
         for part in parts:
@@ -233,10 +243,10 @@ async def scan_chats_table(user_id: int = 0):
     """SQLite Read database table chats."""
     res = ''
     async with aiosqlite.connect(DB_NAME) as cursor:
-        print(f"Scan table <chats> by user id {DB_NAME}.")
-        answer = await cursor.execute('SELECT user_id '
+        print(f"Scan table <chats> by user id {user_id}.")
+        answer = await cursor.execute('SELECT * '
                                       'FROM chats') # WHERE user_id = ?',
-                                      #user_id)
+        #                               str(user_id))
         res = await answer.fetchall()
     print(res)
     return res

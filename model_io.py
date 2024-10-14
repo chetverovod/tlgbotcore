@@ -66,7 +66,7 @@ def get_rag_context(query: str, config_file: str) -> str:
     return context
 
 
-def make_answer(user_query: str, config_file: str) -> str:
+def make_answer(user_query: str, config_file: str, book: list[str]) -> str:
     """ Make single answer."""
 
     query = user_query
