@@ -169,14 +169,17 @@ async def handle_user_query(message: Message, bot: Bot):
         book = chat_history[message.from_user.id]
         book.append(full_record)
     else:
+        prehistory = await scan_chats_table(message.from_user.id)
+        print('prehistory', prehistory)
+        exit(0)
         book = [full_record]
         chat_history[message.from_user.id] = book   
 
     # Добавляем эту же информацию в базу данных
     async with aiosqlite.connect(DB_NAME) as db:
         print(f"Add record to database {DB_NAME} table chats.")
-        await db.execute('INSERT INTO chats VALUES (?, ?, ?)',
-                         (message.from_user.id, query, model_answer))
+        await db.execute('INSERT INTO chats VALUES (?, ?, ?, ?)',
+                         (message.from_user.id, message.from_user.username, query, model_answer))
         res = await db.commit()
         print(res)
 
@@ -213,17 +216,30 @@ async def create_table_users(manager, table_name='users_reg'):
         await manager.create_table(table_name=table_name, columns=columns)
 
 
-async def create_table():
-    """SQLite Create database table."""
+async def create_chats_table():
+    """SQLite Create database table chats."""
 
-    async with aiosqlite.connect(DB_NAME) as db:
-        print(f"Create table chats in database {DB_NAME}.")
-        res = await db.execute('CREATE TABLE IF NOT EXISTS chats '
-                               '(user_id integer,'
+    async with aiosqlite.connect(DB_NAME) as cursor:
+        print(f"Create table <chats> in database {DB_NAME}.")
+        res = await cursor.execute('CREATE TABLE IF NOT EXISTS chats '
+                               '(user_id integer, user_name text,'
                                ' question text, answer text)')
         print(res)
-        res = await db.commit()
+        res = await cursor.commit()
         print(res)
+
+
+async def scan_chats_table(user_id: int = 0):
+    """SQLite Read database table chats."""
+    res = ''
+    async with aiosqlite.connect(DB_NAME) as cursor:
+        print(f"Scan table <chats> by user id {DB_NAME}.")
+        answer = await cursor.execute('SELECT user_id '
+                                      'FROM chats') # WHERE user_id = ?',
+                                      #user_id)
+        res = await answer.fetchall()
+    print(res)
+    return res
 
 
 async def main():
@@ -231,7 +247,7 @@ async def main():
     global args
     args = parse_args()
     init(args)
-    await create_table()  # Создание таблицы в базе данных
+    await create_chats_table()  # Создание таблицы в базе данных
 
     # exit()
     print(f"Bot <{cfg['bot_name']}>  started. See log in <{cfg['log_file']}>.")
