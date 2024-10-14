@@ -144,14 +144,14 @@ async def handle_user_query(message: Message, bot: Bot):
         book = chat_history[message.from_user.id]
     else:
         prehistory = await scan_chats_table(message.from_user.id)
-        print('prehistory', prehistory)
+        # print('prehistory', prehistory)
         prehistory_book = []
         if prehistory:
             for user_id, username, question, answer in prehistory:
-                user_record = f'{{"role": "user", "content": "{question}"}}'
-                asistant_record = f'{{"role": "assistant", "content": "{answer}"}}'
-                prehistory_book.append(f'{user_record},\n{asistant_record}')
-            print('prehistory_book', prehistory_book)
+                user_record = {"role": "user", "content": f"{question}"}
+                assistant_record = {"role": "assistant", "content": f"{answer}"}
+                prehistory_book.append([user_record, assistant_record])
+            # print('prehistory_book', prehistory_book)
             book = prehistory_book
 
     query = message.text
@@ -178,12 +178,13 @@ async def handle_user_query(message: Message, bot: Bot):
 
     # await record_user_query(query)
     #print('query', query)
-    user_record = f'{{"role": "user", "content": "{query}"}}'
-    asistant_record = f'{{"role": "assistant", "content": "{model_answer}"}}'
-    full_record = f'{user_record},\n{asistant_record}'
-    print('full_reocord', full_record)
+    user_record = {"role": "user", "content": f"{query}"}
+    assistant_record = {"role": "assistant", "content": f"{model_answer}"}
+    full_record = [user_record, assistant_record]
+    print('full_record', full_record)
     
     book.append(full_record)
+    chat_history[message.from_user.id] = book
 
     # Добавляем эту же информацию в базу данных
     async with aiosqlite.connect(DB_NAME) as db:
@@ -232,8 +233,8 @@ async def create_chats_table():
     async with aiosqlite.connect(DB_NAME) as cursor:
         print(f"Create table <chats> in database {DB_NAME}.")
         res = await cursor.execute('CREATE TABLE IF NOT EXISTS chats '
-                               '(user_id integer, user_name text,'
-                               ' question text, answer text)')
+                                   '(user_id integer, user_name text, '
+                                   'question text, answer text)')
         print(res)
         res = await cursor.commit()
         print(res)

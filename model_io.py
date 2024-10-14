@@ -4,7 +4,6 @@ import ollama
 import chromadb
 import config
 
-
 # Load settings from configuration file.
 cfg = config.Config('models.cfg')
 EMBED_MODEL = cfg["embedmodel"]
@@ -27,12 +26,14 @@ def get_collection() -> chromadb.Collection:
     return collection
 
 
-def build_prompt(user_query: str, rag_context: str) -> str:
+def build_prompt(user_query: str, rag_context: str, conversation_book: list = None) -> str:
     """Build prompt for LLM model."""
 
     prompt = BASE_FOR_PROMPT.replace('<user_query>', user_query)
     prompt = prompt.replace('<rag_context>', rag_context)
-
+   
+    #prompt = prompt.replace('<conversation_history>', ' '.join(flat_book))
+    #logging.info('conversation_book: %s', conversation_book)
     return prompt
 
 
@@ -70,25 +71,34 @@ def make_answer(user_query: str, config_file: str, book: list[str]) -> str:
     """ Make single answer."""
 
     query = user_query
-    context = get_rag_context(query, config_file)
-    modelquery = build_prompt(query, context)
+    rag_context = get_rag_context(query, config_file)
+    modelquery = build_prompt(query, rag_context, book)
 
     if PRINT_CONTEXT is True:
         msg = ("\n----------------------Request-------------------------\n"
                f"{query}"
                "\n----------------------Context begin-------------------\n"
-               f"docs: {context}"
+               f"docs: {rag_context}"
                "\n----------------------Context end---------------------\n")
         logging.info(msg)
 
-    if USE_CHAT is True:
-        response = ollama.chat(model=MAIN_MODEL, messages=[
-            {
+
+    flat_book = []
+    for question, answer in book:
+        #q = question['content']
+        #a = answer['content']  
+        #flat_book.append(f"\nВопрос: {q}\nОтвет: {a}\n")
+        flat_book.append(question)
+        flat_book.append(answer)
+    main_phrase = {
                 'role': 'user',
                 'content': query,
                 'prompt': modelquery
-            },
-        ])
+            }
+    flat_book.append(main_phrase)
+    logging.info("flat book %s", flat_book)
+    if USE_CHAT is True:
+        response = ollama.chat(model=MAIN_MODEL, messages=flat_book)
 
         res = response['message']['content']
     else:

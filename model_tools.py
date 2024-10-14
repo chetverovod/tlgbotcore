@@ -26,8 +26,6 @@ def split_into_parts(text, part_size=1000):
 
 def split_into_paragraphs(text):
     paragraphs = re.findall(r'(?<=\n)(.*?)(?=\n\n|$)', text)
-    #paragraphs = re.findall(r'(?<=\n)(.*?)(?=\n|$)', text)
-    #paragraphs = text.split('\n\n')
     cleaned_paragraphs = []
     for paragraph in paragraphs:
         if not re.match(r'\d+\.', paragraph):
@@ -37,7 +35,6 @@ def split_into_paragraphs(text):
 
 def split_into_paragraphs2(text):
     paragraphs = re.findall(r'(?<=\n)(.*?)(?=\n\n|$)', text)
-    #paragraphs = re.findall(r'(?<=\n)(.*?)(?=\n|$)', text)
     numbered_lists = {}
     for paragraph in paragraphs:
         lists = re.findall(r'^(.*?)\n\d+\.', paragraph)
