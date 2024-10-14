@@ -20,6 +20,7 @@ from model_tools import split_into_parts
 import aiosqlite
 
 
+chat_history = {}
 
 
 time_begin = datetime.now()
@@ -67,6 +68,8 @@ def init(cli_args: dict):
     global MAX_MESSAGE_SIZE 
     MAX_MESSAGE_SIZE = 4096
 
+    global DB_NAME
+    DB_NAME = cfg['db_name']
     
 
 
@@ -158,10 +161,25 @@ async def handle_user_query(message: Message, bot: Bot):
 
     # await record_user_query(query)
     #print('query', query)
-    user_record = f'"role": "user", "content": "{query}"'
-    asistant_record = f'"role": "assistant", "content": "{model_answer}"\n\n'
-    full_record = f'{user_record}{asistant_record}'
+    user_record = f'{{"role": "user", "content": "{query}"}}'
+    asistant_record = f'{{"role": "assistant", "content": "{model_answer}"}}'
+    full_record = f'{user_record},\n{asistant_record}'
     print('full_reocord', full_record)
+    if message.from_user.id in chat_history.keys():
+        book = chat_history[message.from_user.id]
+        book.append(full_record)
+    else:
+        book = [full_record]
+        chat_history[message.from_user.id] = book   
+
+    # Добавляем эту же информацию в базу данных
+    async with aiosqlite.connect(DB_NAME) as db:
+        print(f"Add record to database {DB_NAME} table chats.")
+        await db.execute('INSERT INTO chats VALUES (?, ?, ?)',
+                         (message.from_user.id, query, model_answer))
+        res = await db.commit()
+        print(res)
+
     if len(model_answer) < MAX_MESSAGE_SIZE:
         await message.answer(model_answer)
     else:    
@@ -187,6 +205,7 @@ def parse_args():
 
 
 async def create_table_users(manager, table_name='users_reg'):
+    """PostgreSQL Create database table."""
     async with manager:
         columns = ['user_id INT8 PRIMARY KEY', 'gender VARCHAR(50)', 'age INT',
                    'full_name VARCHAR(255)', 'user_login VARCHAR(255) UNIQUE',
@@ -195,18 +214,16 @@ async def create_table_users(manager, table_name='users_reg'):
 
 
 async def create_table():
-    """Create database table."""
-    db_name = 'db/FireFight.db'
+    """SQLite Create database table."""
 
-    async with aiosqlite.connect(db_name) as db:
-            print("Create database table.")
-            res = await db.execute('CREATE TABLE IF NOT EXISTS chats '
-                         '(user_id text, question text, answer text)')
-            print(res)
-            print("Execute database table.")
-            res = await db.commit()
-            print(res)
-
+    async with aiosqlite.connect(DB_NAME) as db:
+        print(f"Create table chats in database {DB_NAME}.")
+        res = await db.execute('CREATE TABLE IF NOT EXISTS chats '
+                               '(user_id integer,'
+                               ' question text, answer text)')
+        print(res)
+        res = await db.commit()
+        print(res)
 
 
 async def main():
@@ -214,7 +231,7 @@ async def main():
     global args
     args = parse_args()
     init(args)
-    # await create_table()
+    await create_table()  # Создание таблицы в базе данных
 
     # exit()
     print(f"Bot <{cfg['bot_name']}>  started. See log in <{cfg['log_file']}>.")
