@@ -1,5 +1,7 @@
 import os
 import asyncio
+from asyncpg_lite import DatabaseManager
+#from decouple import config
 import logging
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types
@@ -15,6 +17,9 @@ import argparse
 import keyboard as kb
 import model_io as mio
 from model_tools import split_into_parts
+import aiosqlite
+
+
 
 
 time_begin = datetime.now()
@@ -51,7 +56,7 @@ def init(cli_args: dict):
     VER = cfg['ver']
 
     global HELP_MSG
-    HELP_MSG = cfg['help_msg'] 
+    HELP_MSG = cfg['help_msg']
 
     global CONTACTS_MSG
     CONTACTS_MSG = cfg['contacts_msg']
@@ -62,6 +67,9 @@ def init(cli_args: dict):
     global MAX_MESSAGE_SIZE 
     MAX_MESSAGE_SIZE = 4096
 
+    
+
+
     # Включаем логирование, чтобы не пропустить важные сообщения
     logging.basicConfig(level=logging.INFO, filename=cfg['log_file'],
                         filemode="a")
@@ -70,7 +78,17 @@ def init(cli_args: dict):
     msg = f"{time_begin} {BOT_TAG} - start"
     logging.info(msg)
 
-
+async def record_user_query(text):
+    # Record user queries and answers.
+    query = text
+    user_record = f'{"role": "user", "content": "{query}"\n}\n'
+    asistant_record = "no"
+    # asistant_record = f'{"role": "assistant", "content": "{model_answer}"\n}\n'
+    full_reocord = f'{user_record}{asistant_record}'
+    print('full_reocord', full_reocord)
+    #with open(cfg['chat_log_file']//f"{message.from_user.id}.txt", 'a') as f:
+    #with open(cfg['chat_log_file'], 'a', encoding="utf-8") as f:
+    #    f.write(f'{full_reocord}')
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
@@ -138,6 +156,12 @@ async def handle_user_query(message: Message, bot: Bot):
                  f"answer<{model_answer}>\n")
     #await message.answer( model_answer, parse_mode=ParseMode.MARKDOWN_V2)
 
+    # await record_user_query(query)
+    #print('query', query)
+    user_record = f'"role": "user", "content": "{query}"'
+    asistant_record = f'"role": "assistant", "content": "{model_answer}"\n\n'
+    full_record = f'{user_record}{asistant_record}'
+    print('full_reocord', full_record)
     if len(model_answer) < MAX_MESSAGE_SIZE:
         await message.answer(model_answer)
     else:    
@@ -162,12 +186,37 @@ def parse_args():
     return parser.parse_args()
 
 
+async def create_table_users(manager, table_name='users_reg'):
+    async with manager:
+        columns = ['user_id INT8 PRIMARY KEY', 'gender VARCHAR(50)', 'age INT',
+                   'full_name VARCHAR(255)', 'user_login VARCHAR(255) UNIQUE',
+                   'photo TEXT', 'about TEXT', 'date_reg TIMESTAMP DEFAULT CURRENT_TIMESTAMP']
+        await manager.create_table(table_name=table_name, columns=columns)
+
+
+async def create_table():
+    """Create database table."""
+    db_name = 'db/FireFight.db'
+
+    async with aiosqlite.connect(db_name) as db:
+            print("Create database table.")
+            res = await db.execute('CREATE TABLE IF NOT EXISTS chats '
+                         '(user_id text, question text, answer text)')
+            print(res)
+            print("Execute database table.")
+            res = await db.commit()
+            print(res)
+
+
+
 async def main():
     """Start bot."""
-
     global args
     args = parse_args()
     init(args)
+    # await create_table()
+
+    # exit()
     print(f"Bot <{cfg['bot_name']}>  started. See log in <{cfg['log_file']}>.")
 
     # Запуск процесса поллинга новых апдейтов
