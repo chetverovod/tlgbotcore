@@ -85,9 +85,6 @@ def make_answer(user_query: str, config_file: str, book: list[str]) -> str:
 
     flat_book = []
     for question, answer in book:
-        #q = question['content']
-        #a = answer['content']  
-        #flat_book.append(f"\nВопрос: {q}\nОтвет: {a}\n")
         flat_book.append(question)
         flat_book.append(answer)
     main_phrase = {
