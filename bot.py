@@ -19,6 +19,7 @@ import model_io as mio
 from model_tools import split_into_parts
 import aiosqlite
 
+learning_book = []
 
 chat_history = {}
 
@@ -131,6 +132,16 @@ async def cmd_start(message: types.Message):
     await message.answer(START_GREETINGS)
 
 
+async def get_anonimus_context(book: list):
+    res = []
+    if book:
+        for user_id, username, question, answer in book:
+            user_record = {"role": "user", "content": f"{question}"}
+            assistant_record = {"role": "assistant", "content": f"{answer}"}
+            res.append([user_record, assistant_record])
+    return res
+
+
 @dp.message(F.text)
 async def handle_user_query(message: Message, bot: Bot):
     """Handle user queries."""
@@ -138,10 +149,15 @@ async def handle_user_query(message: Message, bot: Bot):
     # Получаем текущее время в часовом поясе ПК
     time_begin = datetime.now()
 
+    
+    # Подготавливаем книгу с предысторией обучающих диалогов с ментором.
+    book = learning_book 
+    
+    #book = [] # learning_book
+    
     # Подготавливаем книгу с предысторией диалогов с текущим юзером.
-    book = []
     if message.from_user.id in chat_history.keys():
-        book = chat_history[message.from_user.id]
+        book.extend(chat_history[message.from_user.id])
     else:
         prehistory = await scan_chats_table(message.from_user.id)
         # print('prehistory', prehistory)
@@ -151,8 +167,9 @@ async def handle_user_query(message: Message, bot: Bot):
                 user_record = {"role": "user", "content": f"{question}"}
                 assistant_record = {"role": "assistant", "content": f"{answer}"}
                 prehistory_book.append([user_record, assistant_record])
-            # print('prehistory_book', prehistory_book)
-            book = prehistory_book
+            #print('prehistory_book', prehistory_book[0])
+            #print('book', book[0])
+            book.extend(prehistory_book)
 
     query = message.text
     info_str = (f"\n{time_begin} bot<{cfg['bot_name']}> - "
@@ -240,6 +257,17 @@ async def create_chats_table():
         print(res)
 
 
+async def scan_lerning_book(user_id: int = 0):
+    """SQLite Read lerning book from  database table chats."""
+    res = ''
+    async with aiosqlite.connect(DB_NAME) as cursor:
+        print(f"Scan learning book from table <chats> by user id {user_id}.")
+        answer = await cursor.execute('SELECT * FROM chats WHERE user_id = ?',
+                                      (user_id,))
+        res = await answer.fetchall()
+    return res
+
+
 async def scan_chats_table(user_id: int = 0):
     """SQLite Read database table chats."""
     res = ''
@@ -259,7 +287,10 @@ async def main():
     args = parse_args()
     init(args)
     await create_chats_table()  # Создание таблицы в базе данных
-
+    global learning_book
+    res = await scan_lerning_book(273167770)
+    learning_book = await get_anonimus_context(res)
+    logging.info('learning_book in main %s', learning_book)
     # exit()
     print(f"Bot <{cfg['bot_name']}>  started. See log in <{cfg['log_file']}>.")
 
