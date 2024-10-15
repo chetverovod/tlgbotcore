@@ -21,12 +21,13 @@ def get_collection() -> chromadb.Collection:
     Returns:
         chromadb.Collection: A Chroma collection.
     """
+
     chroma = chromadb.HttpClient(host="localhost", port=8000)
     collection = chroma.get_or_create_collection(COLLECTION_NAME)
     return collection
 
 
-def build_prompt(user_query: str, rag_context: str, conversation_book: list = None) -> str:
+def build_prompt(user_query: str, rag_context: str) -> str:
     """Build prompt for LLM model."""
 
     prompt = BASE_FOR_PROMPT.replace('<user_query>', user_query)
@@ -54,16 +55,15 @@ def get_rag_context(query: str, config_file: str) -> str:
     global BASE_FOR_PROMPT
     BASE_FOR_PROMPT = cfg['base_for_prompt']
 
-
     collection = get_collection()
     if EMBED_MODEL == 'navec':
         emb = ec.navec_embeddings(query)
     else:
         emb = ollama.embeddings(model=EMBED_MODEL, prompt=query)
     queryembed = emb["embedding"]
-    relevantdocs = collection.query(
+    relevant_docs = collection.query(
         query_embeddings=[queryembed], n_results=5)["documents"][0]
-    context = "\n\n".join(relevantdocs)
+    context = "\n\n".join(relevant_docs)
     return context
 
 
@@ -72,7 +72,7 @@ def make_answer(user_query: str, config_file: str, book: list[str]) -> str:
 
     query = user_query
     rag_context = get_rag_context(query, config_file)
-    modelquery = build_prompt(query, rag_context, book)
+    prompt = build_prompt(query, rag_context)
 
     if PRINT_CONTEXT is True:
         msg = ("\n----------------------Request-------------------------\n"
@@ -81,8 +81,9 @@ def make_answer(user_query: str, config_file: str, book: list[str]) -> str:
                f"docs: {rag_context}"
                "\n----------------------Context end---------------------\n")
         logging.info(msg)
-
-
+    else:
+        logging.info("Skipping printing context.")
+            
     flat_book = []
     for question, answer in book:
         flat_book.append(question)
@@ -90,16 +91,17 @@ def make_answer(user_query: str, config_file: str, book: list[str]) -> str:
     main_phrase = {
                 'role': 'user',
                 'content': query,
-                'prompt': modelquery
+                'prompt': prompt
             }
     flat_book.append(main_phrase)
     logging.info("flat book %s", flat_book)
     if USE_CHAT is True:
+        logging.info('<chat> mode')
         response = ollama.chat(model=MAIN_MODEL, messages=flat_book)
-
         res = response['message']['content']
     else:
-        stream = ollama.generate(model=MAIN_MODEL, prompt=modelquery,
+        logging.info('<generate mode> mode')
+        stream = ollama.generate(model=MAIN_MODEL, prompt=prompt,
                                  stream=True)
         res = ''
         for chunk in stream:

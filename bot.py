@@ -23,9 +23,7 @@ learning_book = []
 
 chat_history = {}
 
-
 time_begin = datetime.now()
-
 
 # Диспетчер
 dp = Dispatcher()
@@ -82,17 +80,6 @@ def init(cli_args: dict):
     msg = f"{time_begin} {BOT_TAG} - start"
     logging.info(msg)
 
-async def record_user_query(text):
-    # Record user queries and answers.
-    query = text
-    user_record = f'{"role": "user", "content": "{query}"\n}\n'
-    asistant_record = "no"
-    # asistant_record = f'{"role": "assistant", "content": "{model_answer}"\n}\n'
-    full_reocord = f'{user_record}{asistant_record}'
-    print('full_reocord', full_reocord)
-    #with open(cfg['chat_log_file']//f"{message.from_user.id}.txt", 'a') as f:
-    #with open(cfg['chat_log_file'], 'a', encoding="utf-8") as f:
-    #    f.write(f'{full_reocord}')
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
@@ -149,27 +136,17 @@ async def handle_user_query(message: Message, bot: Bot):
     # Получаем текущее время в часовом поясе ПК
     time_begin = datetime.now()
 
-    
+
     # Подготавливаем книгу с предысторией обучающих диалогов с ментором.
-    book = learning_book 
-    
-    #book = [] # learning_book
-    
+    book = learning_book
+
     # Подготавливаем книгу с предысторией диалогов с текущим юзером.
     if message.from_user.id in chat_history.keys():
         book.extend(chat_history[message.from_user.id])
     else:
         prehistory = await scan_chats_table(message.from_user.id)
-        # print('prehistory', prehistory)
-        prehistory_book = []
-        if prehistory:
-            for user_id, username, question, answer in prehistory:
-                user_record = {"role": "user", "content": f"{question}"}
-                assistant_record = {"role": "assistant", "content": f"{answer}"}
-                prehistory_book.append([user_record, assistant_record])
-            #print('prehistory_book', prehistory_book[0])
-            #print('book', book[0])
-            book.extend(prehistory_book)
+        prehistory_book = await get_anonimus_context(prehistory)
+        book.extend(prehistory_book)
 
     query = message.text
     info_str = (f"\n{time_begin} bot<{cfg['bot_name']}> - "
@@ -193,8 +170,6 @@ async def handle_user_query(message: Message, bot: Bot):
                  f"answer<{model_answer}>\n")
     #await message.answer( model_answer, parse_mode=ParseMode.MARKDOWN_V2)
 
-    # await record_user_query(query)
-    #print('query', query)
     user_record = {"role": "user", "content": f"{query}"}
     assistant_record = {"role": "assistant", "content": f"{model_answer}"}
     full_record = [user_record, assistant_record]
@@ -207,7 +182,8 @@ async def handle_user_query(message: Message, bot: Bot):
     async with aiosqlite.connect(DB_NAME) as db:
         print(f"Add record to database {DB_NAME} table chats.")
         await db.execute('INSERT INTO chats VALUES (?, ?, ?, ?)',
-                         (message.from_user.id, message.from_user.username, query, model_answer))
+                         (message.from_user.id, message.from_user.username,
+                          query, model_answer))
         res = await db.commit()
         print(res)
 
