@@ -13,7 +13,7 @@ LOGGER = logging.getLogger(__name__)
 def test_valve_gap():
 
     query = "Зазор клапанов?"
-    model_answer = mio.make_answer(query)
+    model_answer = mio.get_answer(query)
 
     assert "0.1" in model_answer
 
@@ -21,7 +21,7 @@ def test_valve_gap():
 def test_gas_tank():
 
     query = "Емкость топливного бака?"
-    model_answer = mio.make_answer(query)
+    model_answer = mio.get_answer(query)
 
     assert "13" in model_answer
 
@@ -29,7 +29,7 @@ def test_gas_tank():
 def test_chain_links_count():
 
     query = "Длина цепи?"
-    model_answer = mio.make_answer(query)
+    model_answer = mio.get_answer(query)
 
     assert "112" in model_answer
 
@@ -37,7 +37,7 @@ def test_chain_links_count():
 def test_chain_checkin():
 
     query = "Как проверить состояние цепи?"
-    model_answer = mio.make_answer(query).lower()
+    model_answer = mio.get_answer(query).lower()
 
     assert "ржав" in model_answer
     assert "перекрученные" in model_answer

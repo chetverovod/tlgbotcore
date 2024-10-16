@@ -1,3 +1,4 @@
+import sys
 import logging
 import embeddings_ctrl as ec
 import ollama
@@ -5,7 +6,8 @@ import chromadb
 import config
 
 # Load settings from configuration file.
-cfg = config.Config('models.cfg')
+DEFAULT_SETTINGS_FILE = 'models.cfg'
+cfg = config.Config(DEFAULT_SETTINGS_FILE)
 EMBED_MODEL = cfg["embedmodel"]
 MAIN_MODEL = cfg["mainmodel"]
 USE_CHAT = cfg['use_chat']
@@ -32,7 +34,7 @@ def build_prompt(user_query: str, rag_context: str) -> str:
 
     prompt = BASE_FOR_PROMPT.replace('<user_query>', user_query)
     prompt = prompt.replace('<rag_context>', rag_context)
-   
+
     #prompt = prompt.replace('<conversation_history>', ' '.join(flat_book))
     #logging.info('conversation_book: %s', conversation_book)
     return prompt
@@ -67,37 +69,54 @@ def get_rag_context(query: str, config_file: str) -> str:
     return context
 
 
-def make_answer(user_query: str, config_file: str, book: list[str]) -> str:
+def log_context(user_query: str, rag_context: str) -> None:
+
+    if PRINT_CONTEXT is True:
+        msg = ("\n----------------------Request-------------------------\n"
+                     f"{user_query}"
+                     "\n----------------------Context begin-------------------\n"
+                     f"docs: {rag_context}"
+                     "\n----------------------Context end---------------------\n")
+        logging.info(msg)
+    else:
+        logging.info("Skipping printing context.")
+
+
+def build_flat_book(user_query: str, prompt: str,
+                    history_book: list[str]) -> list[str]:
+    """ Build flat book."""
+    flat_book = []
+    for question, answer in history_book:
+        flat_book.append(question)
+        flat_book.append(answer)
+        main_phrase = {
+                'role': 'user',
+                'content': user_query,
+                'prompt': prompt
+            }
+    flat_book.append(main_phrase)
+    logging.info("flat book %s", flat_book)
+    logging.info("flat book size (bytes): %s", sys.getsizeof(flat_book))
+    return flat_book
+
+
+def get_answer(user_query: str, config_file: str,
+               history_book: list[str]) -> str:
     """ Make single answer."""
 
     query = user_query
     rag_context = get_rag_context(query, config_file)
     prompt = build_prompt(query, rag_context)
+    log_context(query, rag_context)
+    flat_book = build_flat_book(query, prompt, history_book)
 
-    if PRINT_CONTEXT is True:
-        msg = ("\n----------------------Request-------------------------\n"
-               f"{query}"
-               "\n----------------------Context begin-------------------\n"
-               f"docs: {rag_context}"
-               "\n----------------------Context end---------------------\n")
-        logging.info(msg)
-    else:
-        logging.info("Skipping printing context.")
-            
-    flat_book = []
-    for question, answer in book:
-        flat_book.append(question)
-        flat_book.append(answer)
-    main_phrase = {
-                'role': 'user',
-                'content': query,
-                'prompt': prompt
-            }
-    flat_book.append(main_phrase)
-    logging.info("flat book %s", flat_book)
     if USE_CHAT is True:
         logging.info('<chat> mode')
-        response = ollama.chat(model=MAIN_MODEL, messages=flat_book)
+        NUM_CTX = 9000 #4096 #2048
+        #opt = f'{{"num_ctx": {NUM_CTX}}}'
+        opt = {"num_ctx": NUM_CTX}
+        response = ollama.chat(model=MAIN_MODEL, messages=flat_book,
+                                options=opt)
         res = response['message']['content']
     else:
         logging.info('<generate mode> mode')
@@ -132,16 +151,9 @@ def main():
     while run_flag is True:
         query = input(query_tag)
         if query.capitalize() != 'Q' and query.capitalize() != 'Й':
-            context = get_rag_context(query)
+            context = get_rag_context(query, DEFAULT_SETTINGS_FILE)
             modelquery = build_prompt(query, context)
-            if PRINT_CONTEXT is True:
-                logging.info("%s",
-                             "\n----------------------Request-------------------------\n"
-                             f'{query}'
-                             "\n----------------------Context begin-------------------\n"
-                             f'{context}'
-                             "\n----------------------Context end---------------------\n"
-                             )
+            log_context(query, context)
 
             if USE_CHAT is True:
                 response = ollama.chat(model=MAIN_MODEL, messages=[

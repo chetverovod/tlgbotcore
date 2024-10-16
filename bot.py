@@ -31,6 +31,8 @@ dp = Dispatcher()
 
 def init(cli_args: dict):
     """Initial settings for start."""
+    global MENTOR_ID
+    MENTOR_ID = 273167770
 
     # Load settings from configuration file.
     global cfg
@@ -65,7 +67,7 @@ def init(cli_args: dict):
     START_GREETINGS = cfg['start_greetings']
 
     global MAX_MESSAGE_SIZE 
-    MAX_MESSAGE_SIZE = 4096
+    MAX_MESSAGE_SIZE = 4096 # Ограничение телеграма по величине сообщения.
 
     global DB_NAME
     DB_NAME = cfg['db_name']
@@ -136,7 +138,6 @@ async def handle_user_query(message: Message, bot: Bot):
     # Получаем текущее время в часовом поясе ПК
     time_begin = datetime.now()
 
-
     # Подготавливаем книгу с предысторией обучающих диалогов с ментором.
     book = learning_book
 
@@ -144,19 +145,21 @@ async def handle_user_query(message: Message, bot: Bot):
     if message.from_user.id in chat_history.keys():
         book.extend(chat_history[message.from_user.id])
     else:
+        # Если в словаре нет записи о чате с этим пользователем,
+        #  историю общения с ним  из базы данных. 
         prehistory = await scan_chats_table(message.from_user.id)
         prehistory_book = await get_anonimus_context(prehistory)
         book.extend(prehistory_book)
 
-    query = message.text
+    user_query = message.text
     info_str = (f"\n{time_begin} bot<{cfg['bot_name']}> - "
                 f"user<{message.from_user.username}> - "
                 f"user_id<{message.from_user.id}> - "
-                f"query<{query}>\n")
+                f"query<{user_query}>\n")
 
     logging.info(info_str)
 
-    model_answer = mio.make_answer(query, args.models_config, book)
+    model_answer = mio.get_answer(user_query, args.models_config, book)
     time_end = datetime.now()
     time_dif = time_begin - time_end
     seconds_in_day = 24 * 60 * 60
@@ -168,24 +171,24 @@ async def handle_user_query(message: Message, bot: Bot):
     logging.info("%s", f"\n{time_end} bot<{cfg['bot_name']}> - "
                  f"user<{message.from_user.username}> - "
                  f"answer<{model_answer}>\n")
-    #await message.answer( model_answer, parse_mode=ParseMode.MARKDOWN_V2)
 
-    user_record = {"role": "user", "content": f"{query}"}
+    # await message.answer( model_answer, parse_mode=ParseMode.MARKDOWN_V2)
+
+    user_record = {"role": "user", "content": f"{user_query}"}
     assistant_record = {"role": "assistant", "content": f"{model_answer}"}
     full_record = [user_record, assistant_record]
     print('full_record', full_record)
-    
+
     book.append(full_record)
     chat_history[message.from_user.id] = book
 
     # Добавляем эту же информацию в базу данных
     async with aiosqlite.connect(DB_NAME) as db:
-        print(f"Add record to database {DB_NAME} table chats.")
+        logging.info("Add record to database %s table <chats>.", DB_NAME)
         await db.execute('INSERT INTO chats VALUES (?, ?, ?, ?)',
                          (message.from_user.id, message.from_user.username,
-                          query, model_answer))
-        res = await db.commit()
-        print(res)
+                          user_query, model_answer))
+        await db.commit()
 
     if len(model_answer) < MAX_MESSAGE_SIZE:
         await message.answer(model_answer)
@@ -224,23 +227,16 @@ async def create_chats_table():
     """SQLite Create database table chats."""
 
     async with aiosqlite.connect(DB_NAME) as cursor:
-        print(f"Create table <chats> in database {DB_NAME}.")
-        res = await cursor.execute('CREATE TABLE IF NOT EXISTS chats '
-                                   '(user_id integer, user_name text, '
-                                   'question text, answer text)')
-        print(res)
-        res = await cursor.commit()
-        print(res)
+        logging.info("Create table <chats> in database %s.", DB_NAME)
+        await cursor.execute('CREATE TABLE IF NOT EXISTS chats '
+                             '(user_id integer, user_name text, '
+                             'question text, answer text)')
+        await cursor.commit()
 
 
-async def scan_lerning_book(user_id: int = 0):
+async def scan_lerning_book():
     """SQLite Read lerning book from  database table chats."""
-    res = ''
-    async with aiosqlite.connect(DB_NAME) as cursor:
-        print(f"Scan learning book from table <chats> by user id {user_id}.")
-        answer = await cursor.execute('SELECT * FROM chats WHERE user_id = ?',
-                                      (user_id,))
-        res = await answer.fetchall()
+    res = await scan_chats_table(MENTOR_ID)
     return res
 
 
@@ -248,13 +244,13 @@ async def scan_chats_table(user_id: int = 0):
     """SQLite Read database table chats."""
     res = ''
     async with aiosqlite.connect(DB_NAME) as cursor:
-        print(f"Scan table <chats> by user id {user_id}.")
+        logging.info("Scan table <chats> by user id %s", user_id)
         answer = await cursor.execute('SELECT * '
-                                      'FROM chats') # WHERE user_id = ?',
-        #                               str(user_id))
+                                      'FROM chats WHERE user_id = ?',
+                                      (user_id,))
         res = await answer.fetchall()
-    print(res)
     return res
+
 
 
 async def main():
@@ -264,10 +260,16 @@ async def main():
     init(args)
     await create_chats_table()  # Создание таблицы в базе данных
     global learning_book
-    res = await scan_lerning_book(273167770)
+    res = await scan_lerning_book()
     learning_book = await get_anonimus_context(res)
+    text_book = []
+    for question, answer in learning_book:
+        text_book.append(f"Вопрос: {question['content']}\n")
+        text_book.append(f"Ответ: {answer['content']}\n\n")
+
     logging.info('learning_book in main %s', learning_book)
-    # exit()
+    with open("learning_book.txt", "w", encoding="utf-8") as out:
+        out.write(''.join(text_book))
     print(f"Bot <{cfg['bot_name']}>  started. See log in <{cfg['log_file']}>.")
 
     # Запуск процесса поллинга новых апдейтов
