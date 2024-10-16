@@ -112,8 +112,7 @@ def get_answer(user_query: str, config_file: str,
 
     if USE_CHAT is True:
         logging.info('<chat> mode')
-        NUM_CTX = 9000 #4096 #2048
-        #opt = f'{{"num_ctx": {NUM_CTX}}}'
+        NUM_CTX = 4096 #2048
         opt = {"num_ctx": NUM_CTX}
         response = ollama.chat(model=MAIN_MODEL, messages=flat_book,
                                 options=opt)
