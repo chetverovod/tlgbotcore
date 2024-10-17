@@ -136,22 +136,32 @@ async def get_profile(message: Message):
                 f'https://t.me/easy_refer_bot?start={message.from_user.id}')
     await message.answer(text, reply_markup=mentor_home_page_kb(message.from_user.id))
 
-#@dp.message(Command('profile'))
+
 @dp.message(F.text.contains("Включить режим обучения"))
 async def learning_on(message: Message):
     async with ChatActionSender.typing(bot=bot, chat_id=message.from_user.id):
-        text = '📖 Обучение включено.'
+        text = '📝 Обучение включено.'
         global learning_is_on
         learning_is_on = True
     await message.answer(text, reply_markup=mentor_home_page_kb(message.from_user.id))
 
 
-@dp.message(F.text.contains("Выключить режим обучения"))
+@dp.message(F.text.contains("Включить режим общения"))
 async def learning_off(message: Message):
     async with ChatActionSender.typing(bot=bot, chat_id=message.from_user.id):
-        text = '📕 Обучение выключено.'
+        text = '️🗨️ Общение включено.'
         global learning_is_on
         learning_is_on = False
+    await message.answer(text, reply_markup=mentor_home_page_kb(message.from_user.id))
+
+
+@dp.message(F.text.contains("Очистить историю общения"))
+async def conversation_clean_up(message: Message):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.from_user.id):
+        text = '️🧹 История общения очищена.'
+        global chat_history
+        chat_history[message.from_user.id] = ""
+
     await message.answer(text, reply_markup=mentor_home_page_kb(message.from_user.id))
 
 
@@ -196,8 +206,9 @@ async def cmd_admin(message: types.Message):
 def mentor_keyboard():
     print('Hello mentor')
     kb_list = [[types.KeyboardButton(text="👤 Мой профиль")]]
-    kb_list.append([types.KeyboardButton(text="📖 Включить режим обучения")])
-    kb_list.append([types.KeyboardButton(text="📕 Выключить режим обучения")])
+    kb_list.append([types.KeyboardButton(text="📝 Включить режим обучения")])
+    kb_list.append([types.KeyboardButton(text="🗨️ Включить режим общения")])
+    kb_list.append([types.KeyboardButton(text="🧹 Очистить историю общения")])
     return types.ReplyKeyboardMarkup(
                                      keyboard=kb_list,
                                      resize_keyboard=True,
@@ -206,6 +217,7 @@ def mentor_keyboard():
                                      )
 
 
+@dp.message(F.text.contains("Панель ментора"))
 @dp.message(Command("mentor"))
 async def cmd_mentor(message: types.Message):
     """Process `/start` command."""
@@ -239,7 +251,7 @@ async def handle_user_query(message: Message, bot: Bot):
         book.extend(chat_history[message.from_user.id])
     else:
         # Если в словаре нет записи о чате с этим пользователем,
-        #  историю общения с ним  из базы данных. 
+        # загружаем историю общения с ним из базы данных.
         prehistory = await scan_chats_table(message.from_user.id)
         prehistory_book = await get_anonimus_context(prehistory)
         book.extend(prehistory_book)
