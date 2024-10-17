@@ -15,7 +15,7 @@ COLLECTION_NAME = cfg['collection_name']
 PRINT_CONTEXT = cfg['print_context']
 
 
-def get_collection() -> chromadb.Collection:
+def get_collection(collection_name: str = None) -> chromadb.Collection:
     """
     Creates and returns a Chroma collection. Collection contains reference
     documents and corresponding embeddings.
@@ -25,7 +25,7 @@ def get_collection() -> chromadb.Collection:
     """
 
     chroma = chromadb.HttpClient(host="localhost", port=8000)
-    collection = chroma.get_or_create_collection(COLLECTION_NAME)
+    collection = chroma.get_or_create_collection(collection_name)
     return collection
 
 
@@ -56,8 +56,10 @@ def get_rag_context(query: str, config_file: str) -> str:
     PRINT_CONTEXT = cfg['print_context']
     global BASE_FOR_PROMPT
     BASE_FOR_PROMPT = cfg['base_for_prompt']
-
-    collection = get_collection()
+      
+    collection = get_collection(COLLECTION_NAME)
+    print('config:', config_file)
+    print(collection)
     if EMBED_MODEL == 'navec':
         emb = ec.navec_embeddings(query)
     else:
@@ -69,7 +71,7 @@ def get_rag_context(query: str, config_file: str) -> str:
     return context
 
 
-def log_context(user_query: str, rag_context: str) -> None:
+def log_rag_context(user_query: str, rag_context: str) -> None:
 
     if PRINT_CONTEXT is True:
         msg = ("\n----------------------Request-------------------------\n"
@@ -89,11 +91,11 @@ def build_flat_book(user_query: str, prompt: str,
     for question, answer in history_book:
         flat_book.append(question)
         flat_book.append(answer)
-        main_phrase = {
-                'role': 'user',
-                'content': user_query,
-                'prompt': prompt
-            }
+    main_phrase = {
+                   'role': 'user',
+                   'content': user_query,
+                   'prompt': prompt
+                  }
     flat_book.append(main_phrase)
     logging.info("flat book %s", flat_book)
     logging.info("flat book size (bytes): %s", sys.getsizeof(flat_book))
@@ -106,8 +108,11 @@ def get_answer(user_query: str, config_file: str,
 
     query = user_query
     rag_context = get_rag_context(query, config_file)
+    if len(rag_context) == 0:
+        log.info("RAG context is empty fo query: %s", query) 
+     
     prompt = build_prompt(query, rag_context)
-    log_context(query, rag_context)
+    log_rag_context(query, rag_context)
     flat_book = build_flat_book(query, prompt, history_book)
 
     if USE_CHAT is True:
@@ -152,7 +157,7 @@ def main():
         if query.capitalize() != 'Q' and query.capitalize() != 'Й':
             context = get_rag_context(query, DEFAULT_SETTINGS_FILE)
             modelquery = build_prompt(query, context)
-            log_context(query, context)
+            log_rag_context(query, context)
 
             if USE_CHAT is True:
                 response = ollama.chat(model=MAIN_MODEL, messages=[

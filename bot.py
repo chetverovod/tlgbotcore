@@ -12,6 +12,8 @@ from aiogram import html
 from aiogram.types.input_file import FSInputFile
 from aiogram.types import InputFile
 from aiogram.enums import ParseMode
+from aiogram.types import BotCommand, BotCommandScopeDefault
+from aiogram.utils.chat_action import ChatActionSender
 import config
 import argparse
 import keyboard as kb
@@ -20,6 +22,10 @@ from model_tools import split_into_parts
 import aiosqlite
 
 learning_book = []
+learning_is_on = False
+
+admins = []
+mentors = []
 
 chat_history = {}
 
@@ -31,12 +37,18 @@ dp = Dispatcher()
 
 def init(cli_args: dict):
     """Initial settings for start."""
-    global MENTOR_ID
-    MENTOR_ID = 273167770
 
     # Load settings from configuration file.
     global cfg
     cfg = config.Config(cli_args.bot_config)
+
+    global ADMIN_ID
+    ADMIN_ID = cfg['admin_id']
+    admins.append(ADMIN_ID)
+
+    global MENTOR_ID
+    MENTOR_ID = cfg['mentor_id']
+    mentors.append(MENTOR_ID)
 
     global TETOKEN
     TETOKEN = cfg['tetoken']
@@ -47,9 +59,6 @@ def init(cli_args: dict):
     # Объект бота
     global bot
     bot = Bot(token=TETOKEN)
-
-    global MOTO_BIKES
-    MOTO_BIKES = ['Suzuki Djebel 200']
 
     global LINK_TO_REFERENCE_DOCS
     LINK_TO_REFERENCE_DOCS = cfg['link_to_reference_docs']
@@ -72,7 +81,6 @@ def init(cli_args: dict):
     global DB_NAME
     DB_NAME = cfg['db_name']
     
-
 
     # Включаем логирование, чтобы не пропустить важные сообщения
     logging.basicConfig(level=logging.INFO, filename=cfg['log_file'],
@@ -117,8 +125,93 @@ async def process_keyboard_command(message: types.Message):
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     """Process `/start` command."""
-
     await message.answer(START_GREETINGS)
+
+@dp.message(Command('profile'))
+@dp.message(F.text.contains('Мой профиль'))
+async def get_profile(message: Message):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.from_user.id):
+        text = (f'👉 Ваш телеграм ID: {message.from_user.id}\n'
+                f'🚀 Вот ваша персональная ссылка на приглашение: '
+                f'https://t.me/easy_refer_bot?start={message.from_user.id}')
+    await message.answer(text, reply_markup=mentor_home_page_kb(message.from_user.id))
+
+#@dp.message(Command('profile'))
+@dp.message(F.text.contains("Включить режим обучения"))
+async def learning_on(message: Message):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.from_user.id):
+        text = '📖 Обучение включено.'
+        global learning_is_on
+        learning_is_on = True
+    await message.answer(text, reply_markup=mentor_home_page_kb(message.from_user.id))
+
+
+@dp.message(F.text.contains("Выключить режим обучения"))
+async def learning_off(message: Message):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.from_user.id):
+        text = '📕 Обучение выключено.'
+        global learning_is_on
+        learning_is_on = False
+    await message.answer(text, reply_markup=mentor_home_page_kb(message.from_user.id))
+
+
+@dp.message(F.text.contains('Назад'))
+async def cmd_back(message: Message):
+    await message.answer(f'{message.from_user.first_name}, Выходим...',
+                         reply_markup=mentor_keyboard(message.from_user.id))
+
+
+def mentor_home_page_kb(user_telegram_id: int):
+    kb_list = [[types.KeyboardButton(text="🔙 Назад")]]
+    if user_telegram_id in mentors:
+        kb_list.append([types.KeyboardButton(text="⚙️ Панель ментора")])
+    return types.ReplyKeyboardMarkup(
+        keyboard=kb_list,
+        resize_keyboard=True,
+        one_time_keyboard=True,
+        input_field_placeholder="Воспользуйтесь меню:"
+    )
+
+
+def admin_keyboard():
+    print('Hello admin')
+    kb_list = [[types.KeyboardButton(text="👤 Мой профиль")]]
+    kb_list.append([types.KeyboardButton(text="⚙️ Панель администратора")])
+    return types.ReplyKeyboardMarkup(
+                                     keyboard=kb_list,
+                                     resize_keyboard=True,
+                                     one_time_keyboard=True,
+                                     input_field_placeholder="Воспользуйтесь меню:"
+                                     )
+
+
+@dp.message(Command("admin"))
+async def cmd_admin(message: types.Message):
+    """Process `/start` command."""
+    if message.from_user.id == ADMIN_ID:
+        response_text = "Здравствуйте, админ!"
+        await message.answer(text=response_text, reply_markup=admin_keyboard())
+
+
+def mentor_keyboard():
+    print('Hello mentor')
+    kb_list = [[types.KeyboardButton(text="👤 Мой профиль")]]
+    kb_list.append([types.KeyboardButton(text="📖 Включить режим обучения")])
+    kb_list.append([types.KeyboardButton(text="📕 Выключить режим обучения")])
+    return types.ReplyKeyboardMarkup(
+                                     keyboard=kb_list,
+                                     resize_keyboard=True,
+                                     one_time_keyboard=True,
+                                     input_field_placeholder="Воспользуйтесь меню:"
+                                     )
+
+
+@dp.message(Command("mentor"))
+async def cmd_mentor(message: types.Message):
+    """Process `/start` command."""
+    if message.from_user.id == ADMIN_ID:
+        response_text = "Здравствуйте, ментор!"
+        await message.answer(text=response_text, reply_markup=mentor_keyboard())
 
 
 async def get_anonimus_context(book: list):
@@ -184,9 +277,13 @@ async def handle_user_query(message: Message, bot: Bot):
 
     # Добавляем эту же информацию в базу данных
     async with aiosqlite.connect(DB_NAME) as db:
+        if learning_is_on is True:
+            learning_flag = "1"
+        else:
+            learning_flag = ""
         logging.info("Add record to database %s table <chats>.", DB_NAME)
-        await db.execute('INSERT INTO chats VALUES (?, ?, ?, ?)',
-                         (message.from_user.id, message.from_user.username,
+        await db.execute('INSERT INTO chats VALUES (?, ?, ?, ?, ?)',
+                         (message.from_user.id, message.from_user.username, learning_flag,
                           user_query, model_answer))
         await db.commit()
 
@@ -229,14 +326,21 @@ async def create_chats_table():
     async with aiosqlite.connect(DB_NAME) as cursor:
         logging.info("Create table <chats> in database %s.", DB_NAME)
         await cursor.execute('CREATE TABLE IF NOT EXISTS chats '
-                             '(user_id integer, user_name text, '
+                             '(user_id integer, user_name text, learning text, '
                              'question text, answer text)')
         await cursor.commit()
 
 
 async def scan_lerning_book():
     """SQLite Read lerning book from  database table chats."""
-    res = await scan_chats_table(MENTOR_ID)
+    res = ''
+    async with aiosqlite.connect(DB_NAME) as cursor:
+        logging.info("Scan table <chats> by user id %s", MENTOR_ID)
+        answer = await cursor.execute('SELECT user_id, user_name, question, answer '
+                                      'FROM chats WHERE user_id = ? AND learning = "1"',
+                                      (MENTOR_ID,))
+
+        res = await answer.fetchall()
     return res
 
 
@@ -245,16 +349,29 @@ async def scan_chats_table(user_id: int = 0):
     res = ''
     async with aiosqlite.connect(DB_NAME) as cursor:
         logging.info("Scan table <chats> by user id %s", user_id)
-        answer = await cursor.execute('SELECT * '
-                                      'FROM chats WHERE user_id = ?',
+        answer = await cursor.execute('SELECT user_id, user_name, question, answer '
+                                      'FROM chats WHERE user_id = ? AND learning = ""',
                                       (user_id,))
         res = await answer.fetchall()
+        #logging.info(res)
     return res
 
+
+async def set_commands():
+    commands = [BotCommand(command='start', description='Старт'),
+                BotCommand(command='admin', description='Администирование'),
+                BotCommand(command='mentor', description='Обучение'),
+                BotCommand(command='profile', description='Мой профиль')]
+    await bot.set_my_commands(commands, BotCommandScopeDefault())
+
+# Функция, которая выполнится когда бот запустится
+async def start_bot():
+    await set_commands()
 
 
 async def main():
     """Start bot."""
+    dp.startup.register(start_bot)
     global args
     args = parse_args()
     init(args)
