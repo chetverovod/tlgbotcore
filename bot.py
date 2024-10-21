@@ -295,8 +295,8 @@ async def handle_user_query(message: Message, bot: Bot):
             learning_flag = ""
         logging.info("Add record to database %s table <chats>.", DB_NAME)
         await db.execute('INSERT INTO chats VALUES (?, ?, ?, ?, ?)',
-                         (message.from_user.id, message.from_user.username, learning_flag,
-                          user_query, model_answer))
+                         (message.from_user.id, message.from_user.username,
+                          user_query, model_answer, learning_flag))
         await db.commit()
 
     if len(model_answer) < MAX_MESSAGE_SIZE:

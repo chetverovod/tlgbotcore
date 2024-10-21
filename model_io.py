@@ -3,7 +3,11 @@ import logging
 import embeddings_ctrl as ec
 import ollama
 import chromadb
+from chromadb.types import SegmentScope
 import config
+import gc
+import os
+import psutil
 
 # Load settings from configuration file.
 DEFAULT_SETTINGS_FILE = 'models.cfg'
@@ -13,6 +17,37 @@ MAIN_MODEL = cfg["mainmodel"]
 USE_CHAT = cfg['use_chat']
 COLLECTION_NAME = cfg['collection_name']
 PRINT_CONTEXT = cfg['print_context']
+
+
+def bytes_to_gb(bytes_value):
+    return bytes_value / (1024 ** 3)
+
+
+def get_process_info():
+    pid = os.getpid()
+    p = psutil.Process(pid)
+    with p.oneshot():
+        mem_info = p.memory_info()
+        # disk_io = p.io_counters()
+    return {
+        "memory_usage": bytes_to_gb(mem_info.rss),
+    }
+
+
+def unload_index(collection_name: str, chroma_client: chromadb.PersistentClient):
+    """
+    Unloads binary hnsw index from memory and removes both segments (binary and metadata) from the segment cache.
+    """
+    collection = chroma_client.get_collection(collection_name)
+    collection_id = collection.id
+    #segment_manager = chroma_client._server._manager
+    segment_manager = chroma_client._server.chroma_segment_manager_impl
+    for scope in [SegmentScope.VECTOR, SegmentScope.METADATA]:
+        if scope in segment_manager.segment_cache:
+            cache = segment_manager.segment_cache[scope].cache
+            if collection_id in cache:
+                segment_manager.callback_cache_evict(cache[collection_id])
+    gc.collect()
 
 
 def get_collection(collection_name: str = None) -> chromadb.Collection:
@@ -27,6 +62,18 @@ def get_collection(collection_name: str = None) -> chromadb.Collection:
     chroma = chromadb.HttpClient(host="localhost", port=8000)
     collection = chroma.get_or_create_collection(collection_name)
     return collection
+
+
+def free_mem_collection(collection_name: str = None) -> None:
+    """
+    Free memory from a Chroma collection.
+
+    Args:
+        collection_name (str, optional): Name of the Chroma collection. Defaults to None.
+    """
+
+    chroma_client = chromadb.HttpClient(host="localhost", port=8000)
+    unload_index(collection_name, chroma_client)
 
 
 def build_prompt(user_query: str, rag_context: str) -> str:
@@ -56,7 +103,7 @@ def get_rag_context(query: str, config_file: str) -> str:
     PRINT_CONTEXT = cfg['print_context']
     global BASE_FOR_PROMPT
     BASE_FOR_PROMPT = cfg['base_for_prompt']
-      
+
     collection = get_collection(COLLECTION_NAME)
     print('config:', config_file)
     print(collection)
@@ -68,6 +115,7 @@ def get_rag_context(query: str, config_file: str) -> str:
     relevant_docs = collection.query(
         query_embeddings=[queryembed], n_results=5)["documents"][0]
     context = "\n\n".join(relevant_docs)
+    # free_mem_collection(COLLECTION_NAME)
     return context
 
 
@@ -119,8 +167,8 @@ def get_answer(user_query: str, config_file: str,
         logging.info('<chat> mode')
         NUM_CTX = 4096 #2048
         opt = {"num_ctx": NUM_CTX}
-        response = ollama.chat(model=MAIN_MODEL, messages=flat_book,
-                                options=opt)
+        #response = ollama.chat(model=MAIN_MODEL, messages=flat_book, options=opt)
+        response = ollama.chat(model=MAIN_MODEL, messages=flat_book)
         res = response['message']['content']
     else:
         logging.info('<generate mode> mode')
