@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 from asyncpg_lite import DatabaseManager
 #from decouple import config
@@ -84,7 +85,7 @@ def init(cli_args: dict):
 
     # Включаем логирование, чтобы не пропустить важные сообщения
     logging.basicConfig(level=logging.INFO, filename=cfg['log_file'],
-                        filemode="a")
+                        filemode="w")
     # Делаем запись в лог о старте бота. Туда же будут
     # помещены запросы и ответы:
     msg = f"{time_begin} {BOT_TAG} - start"
@@ -244,17 +245,21 @@ async def handle_user_query(message: Message, bot: Bot):
     time_begin = datetime.now()
 
     # Подготавливаем книгу с предысторией обучающих диалогов с ментором.
-    book = learning_book
+    book = []
+    logging.info("Learning book size before (bytes): %s", sys.getsizeof(learning_book))
+    book.extend(learning_book)
 
-    # Подготавливаем книгу с предысторией диалогов с текущим юзером.
+    # Подготавливаем книгу с предысторией диалогов с данным юзером.
     if message.from_user.id in chat_history.keys():
-        book.extend(chat_history[message.from_user.id])
+        prehistory_book = chat_history[message.from_user.id]
     else:
-        # Если в словаре нет записи о чате с этим пользователем,
+        # Если в словаре chat_history нет записи о чате с этим пользователем,
         # загружаем историю общения с ним из базы данных.
         prehistory = await scan_chats_table(message.from_user.id)
         prehistory_book = await get_anonimus_context(prehistory)
-        book.extend(prehistory_book)
+        chat_history[message.from_user.id] = prehistory_book 
+    logging.info("Prehistory book size (bytes): %s", sys.getsizeof(prehistory_book))
+    book.extend(prehistory_book)
 
     user_query = message.text
     info_str = (f"\n{time_begin} bot<{cfg['bot_name']}> - "
@@ -263,8 +268,9 @@ async def handle_user_query(message: Message, bot: Bot):
                 f"query<{user_query}>\n")
 
     logging.info(info_str)
-
+    logging.info("book size before (bytes): %s", sys.getsizeof(book))
     model_answer = mio.get_answer(user_query, args.models_config, book)
+    logging.info("book size after (bytes): %s", sys.getsizeof(book))
     time_end = datetime.now()
     time_dif = time_begin - time_end
     seconds_in_day = 24 * 60 * 60
@@ -277,17 +283,28 @@ async def handle_user_query(message: Message, bot: Bot):
                  f"user<{message.from_user.username}> - "
                  f"answer<{model_answer}>\n")
 
-    # await message.answer( model_answer, parse_mode=ParseMode.MARKDOWN_V2)
+    if len(model_answer) < MAX_MESSAGE_SIZE:
+        await message.answer(model_answer)
+    else:
+        await message.answer("Ответ будет на несколько сообщений:")
+        parts = split_into_parts(model_answer, MAX_MESSAGE_SIZE)
+        for part in parts:
+            await message.answer(part)
 
     user_record = {"role": "user", "content": f"{user_query}"}
     assistant_record = {"role": "assistant", "content": f"{model_answer}"}
     full_record = [user_record, assistant_record]
-    print('full_record', full_record)
 
-    book.append(full_record)
-    chat_history[message.from_user.id] = book
+    # Заменяем запись в словаре дополненной её версией.
+    temp_book = chat_history[message.from_user.id]
+    logging.info("book record size in dict (bytes): %s", sys.getsizeof(temp_book))
+    logging.info("book record[-1] in dict (bytes): %s", temp_book[-1])
+    logging.info("Answer full record size  (bytes): %s", sys.getsizeof(full_record))
+    temp_book.append(full_record)
+    logging.info("book record + full record size in dict (bytes): %s", sys.getsizeof(temp_book))
+    chat_history[message.from_user.id] = temp_book
 
-    # Добавляем эту же информацию в базу данных
+    # Добавляем эту же информацию в базу данных.
     async with aiosqlite.connect(DB_NAME) as db:
         if learning_is_on is True:
             learning_flag = "1"
@@ -299,15 +316,7 @@ async def handle_user_query(message: Message, bot: Bot):
                           user_query, model_answer, learning_flag))
         await db.commit()
 
-    if len(model_answer) < MAX_MESSAGE_SIZE:
-        await message.answer(model_answer)
-    else:
-        await message.answer("Ответ будет на несколько сообщений:")
-        parts = split_into_parts(model_answer, MAX_MESSAGE_SIZE)
-        for part in parts:
-            await message.answer(part)
-
-
+    
 def parse_args():
     """CLI options parsing."""
 
@@ -376,8 +385,10 @@ async def set_commands():
                 BotCommand(command='profile', description='Мой профиль')]
     await bot.set_my_commands(commands, BotCommandScopeDefault())
 
-# Функция, которая выполнится когда бот запустится
+
 async def start_bot():
+    """ Функция, которая выполнится когда бот запустится. """
+    
     await set_commands()
 
 

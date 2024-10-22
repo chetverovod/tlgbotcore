@@ -1,5 +1,5 @@
 import sys
-import logging
+import logging as log
 import embeddings_ctrl as ec
 import ollama
 import chromadb
@@ -83,7 +83,7 @@ def build_prompt(user_query: str, rag_context: str) -> str:
     prompt = prompt.replace('<rag_context>', rag_context)
 
     #prompt = prompt.replace('<conversation_history>', ' '.join(flat_book))
-    #logging.info('conversation_book: %s', conversation_book)
+    #log.info('conversation_book: %s', conversation_book)
     return prompt
 
 
@@ -116,6 +116,8 @@ def get_rag_context(query: str, config_file: str) -> str:
         query_embeddings=[queryembed], n_results=5)["documents"][0]
     context = "\n\n".join(relevant_docs)
     # free_mem_collection(COLLECTION_NAME)
+
+    log.info("RAG context size (bytes): %s", sys.getsizeof(context))
     return context
 
 
@@ -127,9 +129,9 @@ def log_rag_context(user_query: str, rag_context: str) -> None:
                      "\n----------------------Context begin-------------------\n"
                      f"docs: {rag_context}"
                      "\n----------------------Context end---------------------\n")
-        logging.info(msg)
+        log.info(msg)
     else:
-        logging.info("Skipping printing context.")
+        log.info("Skipping printing context.")
 
 
 def build_flat_book(user_query: str, prompt: str,
@@ -145,8 +147,8 @@ def build_flat_book(user_query: str, prompt: str,
                    'prompt': prompt
                   }
     flat_book.append(main_phrase)
-    logging.info("flat book %s", flat_book)
-    logging.info("flat book size (bytes): %s", sys.getsizeof(flat_book))
+    #log.info("flat book %s", flat_book)
+    log.info("Flat book size (bytes): %s", sys.getsizeof(flat_book))
     return flat_book
 
 
@@ -154,31 +156,34 @@ def get_answer(user_query: str, config_file: str,
                history_book: list[str]) -> str:
     """ Make single answer."""
 
+    log.info("History book size (bytes): %s", sys.getsizeof(history_book))
     query = user_query
     rag_context = get_rag_context(query, config_file)
     if len(rag_context) == 0:
-        log.info("RAG context is empty fo query: %s", query) 
-     
+        log.info("RAG context is empty fo query: %s", query)
+
     prompt = build_prompt(query, rag_context)
     log_rag_context(query, rag_context)
     flat_book = build_flat_book(query, prompt, history_book)
 
     if USE_CHAT is True:
-        logging.info('<chat> mode')
-        NUM_CTX = 4096 #2048
-        opt = {"num_ctx": NUM_CTX}
+        log.info('mode: <chat>')
+        # NUM_CTX = 4096 #2048
+        # opt = {"num_ctx": NUM_CTX}
         #response = ollama.chat(model=MAIN_MODEL, messages=flat_book, options=opt)
         response = ollama.chat(model=MAIN_MODEL, messages=flat_book)
         res = response['message']['content']
     else:
-        logging.info('<generate mode> mode')
-        stream = ollama.generate(model=MAIN_MODEL, prompt=prompt,
+        log.info('mode: <generate>')
+        # stream = ollama.generate(model=MAIN_MODEL, prompt=prompt,
+        stream = ollama.generate(model=MAIN_MODEL, prompt=flat_book,
                                  stream=True)
         res = ''
         for chunk in stream:
             if chunk["response"]:
                 res += chunk['response']
-    logging.info(res)
+    log.info("Answer: %s", res)
+    log.info("Answer size (bytes): %s", sys.getsizeof(res))
     return res
 
 
@@ -188,14 +193,14 @@ def main():
     """
 
     run_flag = True
-    logging.info("%s", f'Embedding model: {EMBED_MODEL}')
-    logging.info("%s", f'Main model: {MAIN_MODEL}')
+    log.info("%s", f'Embedding model: {EMBED_MODEL}')
+    log.info("%s", f'Main model: {MAIN_MODEL}')
 
-    logging.info('\nAssistant for bike Suzuki Djebel 200 service is running.\n'
+    log.info('\nAssistant for bike Suzuki Djebel 200 service is running.\n'
                  'Enter your question or type "q" to exit.\n')
 
     if EMBED_MODEL == 'navec':
-        logging.info('Navec embeddings selected.\nType questions in Russian.\n')
+        log.info('Navec embeddings selected.\nType questions in Russian.\n')
 
     answer_tag = ">>> "
     query_tag = "<<< "
