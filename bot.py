@@ -298,7 +298,8 @@ async def handle_user_query(message: Message, bot: Bot):
     # Заменяем запись в словаре дополненной её версией.
     temp_book = chat_history[message.from_user.id]
     logging.info("book record size in dict (bytes): %s", sys.getsizeof(temp_book))
-    logging.info("book record[-1] in dict (bytes): %s", temp_book[-1])
+    if len(temp_book) > 0:
+       logging.info("book record[-1] in dict (bytes): %s", temp_book[-1])
     logging.info("Answer full record size  (bytes): %s", sys.getsizeof(full_record))
     temp_book.append(full_record)
     logging.info("book record + full record size in dict (bytes): %s", sys.getsizeof(temp_book))

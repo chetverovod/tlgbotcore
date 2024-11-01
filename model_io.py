@@ -19,6 +19,7 @@ COLLECTION_NAME = cfg['collection_name']
 PRINT_CONTEXT = cfg['print_context']
 CHROMA_PORT = cfg['chroma_port']
 
+opt = {"temperature": 0.4}
 
 def bytes_to_gb(bytes_value):
     return bytes_value / (1024 ** 3)
@@ -77,10 +78,11 @@ def free_mem_collection(collection_name: str = None) -> None:
     unload_index(collection_name, chroma_client)
 
 
-def build_prompt(user_query: str, rag_context: str) -> str:
+def build_prompt(rag_context: str) -> str:
     """Build prompt for LLM model."""
 
-    prompt = BASE_FOR_PROMPT.replace('<user_query>', user_query)
+    #prompt = BASE_FOR_PROMPT.replace('<user_query>', user_query)
+    prompt = BASE_FOR_PROMPT
     prompt = prompt.replace('<rag_context>', rag_context)
 
     #prompt = prompt.replace('<conversation_history>', ' '.join(flat_book))
@@ -138,14 +140,17 @@ def log_rag_context(user_query: str, rag_context: str) -> None:
 def build_flat_book(user_query: str, prompt: str,
                     history_book: list[str]) -> list[str]:
     """ Build flat book."""
-    flat_book = []
+    sytem_msg = {
+                 'role': 'system',
+                 'content': prompt
+                }
+    flat_book = [sytem_msg]
     for question, answer in history_book:
         flat_book.append(question)
         flat_book.append(answer)
     main_phrase = {
                    'role': 'user',
-                   'content': user_query,
-                   'prompt': prompt
+                   'content': user_query
                   }
     flat_book.append(main_phrase)
     #log.info("flat book %s", flat_book)
@@ -163,7 +168,7 @@ def get_answer(user_query: str, config_file: str,
     if len(rag_context) == 0:
         log.info("RAG context is empty fo query: %s", query)
 
-    prompt = build_prompt(query, rag_context)
+    prompt = build_prompt(rag_context)
     log_rag_context(query, rag_context)
     flat_book = build_flat_book(query, prompt, history_book)
 
@@ -172,17 +177,25 @@ def get_answer(user_query: str, config_file: str,
         # NUM_CTX = 4096 #2048
         # opt = {"num_ctx": NUM_CTX}
         #response = ollama.chat(model=MAIN_MODEL, messages=flat_book, options=opt)
-        response = ollama.chat(model=MAIN_MODEL, messages=flat_book)
-        res = response['message']['content']
+        if query == "Привет!":
+            res = "Привет!" 
+        else:    
+            response = ollama.chat(model=MAIN_MODEL, messages=flat_book, options=opt )
+            res = response['message']['content']
+            low_res = res.lower()
+            if ' бот' in low_res:
+                res = "Мне не совсем понятен ваш вопрос."
+            if ('языков' in low_res) and ('модел' in low_res):
+                res = "Мне не совсем понятен ваш вопрос." 
+            if ('искусственн' in low_res) and ('интеллек' in low_res):
+                res = "Мне не совсем понятен ваш вопрос."
+            #s = {"role": "user", "content": f'Напиши этот текст предложение в женском роде:"{res}"'}     
+            #response = ollama.chat(model=MAIN_MODEL, messages=flat_book, options=opt )
     else:
         log.info('mode: <generate>')
-        # stream = ollama.generate(model=MAIN_MODEL, prompt=prompt,
-        stream = ollama.generate(model=MAIN_MODEL, prompt=flat_book,
-                                 stream=True)
-        res = ''
-        for chunk in stream:
-            if chunk["response"]:
-                res += chunk['response']
+        response = ollama.generate(model=MAIN_MODEL, prompt=f'{prompt}\n Ответь на вопрос:{query}')
+        res = response["response"]
+
     log.info("Answer: %s", res)
     log.info("Answer size (bytes): %s", sys.getsizeof(res))
     return res
@@ -220,7 +233,7 @@ def main():
                         'content': query,
                         'prompt': modelquery
                     },
-                ])
+                ], options=opt)
 
                 print(response['message']['content'])
             else:
