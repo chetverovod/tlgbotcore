@@ -1,5 +1,15 @@
-import os
 import sys
+from pathlib import Path
+# Получаем путь до текущего каталога скрипта
+current_dir = Path(__file__).parent.absolute()
+
+# Поднимаемся на одну директорию выше (к родительскому каталогу)
+parent_dir = current_dir.parent
+
+# Добавляем путь к родительской директории в sys.path
+sys.path.append(str(parent_dir))
+
+import os
 import asyncio
 from asyncpg_lite import DatabaseManager
 #from decouple import config
