@@ -279,6 +279,7 @@ async def handle_user_query(message: Message, bot: Bot):
 
     logging.info(info_str)
     logging.info("book size before (bytes): %s", sys.getsizeof(book))
+    await message.answer("пишет...")
     model_answer = mio.get_answer(user_query, args.models_config, book)
     logging.info("book size after (bytes): %s", sys.getsizeof(book))
     time_end = datetime.now()
