@@ -1,2 +1,2 @@
-# MotobikeServiceBot
-AI based telegram bot for motorbike servicing answers.
+# Telegram bot base part
+AI based telegram bot for service answers.
