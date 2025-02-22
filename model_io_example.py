@@ -106,6 +106,8 @@ def get_rag_context(query: str, config_file: str) -> str:
     PRINT_CONTEXT = cfg['print_context']
     global BASE_FOR_PROMPT
     BASE_FOR_PROMPT = cfg['base_for_prompt']
+    global CHROMA_PORT
+    CHROMA_PORT = cfg['chroma_port']
 
     collection = get_collection(COLLECTION_NAME)
     print('config:', config_file)
